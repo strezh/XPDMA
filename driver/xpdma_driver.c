@@ -21,6 +21,7 @@ struct pci_dev *gDev = NULL;        // PCI device structure.
 unsigned int gStatFlags = 0x00;     // Status flags used for cleanup
 unsigned long gBaseHdwr;            // Base register address (Hardware address)
 unsigned long gBaseLen;             // Base register address Length
+void *gBaseVirt = NULL;             // Base register address (Virtual address, for I/O).
 
 
 
@@ -87,9 +88,17 @@ static int xpdma_init (void)
 
     // Get the Base Address Length
     gBaseLen = pci_resource_len(gDev, 0);
-
-    // Print the Base Address Length to Kernel Log
     printk(KERN_INFO"%s: Init: Base hw len %d\n", DEVICE_NAME, (unsigned int) gBaseLen);
+
+    // Get Virtual HW address
+    gBaseVirt = ioremap(gBaseHdwr, gBaseLen);
+    if (!gBaseVirt) {
+        printk(KERN_WARNING"%s: Init: Could not remap memory.\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
+    printk(KERN_INFO"%s: Init: Virt HW address %X\n", DEVICE_NAME, (unsigned int) gBaseVirt);
+
+
 
     // Register driver as a character device.
     if (0 > register_chrdev(gDrvrMajor, DEVICE_NAME, &xpdma_intf)) {
@@ -106,10 +115,15 @@ static int xpdma_init (void)
 
 static void xpdma_exit (void)
 {
+    //  Free up memory pointed to by virtual address
+    if (gBaseVirt != NULL)
+        iounmap(gBaseVirt);
+
+    gBaseVirt = NULL;
+
     // Unregister Device Driver
-    if (gStatFlags & HAVE_KERNEL_REG) {
+    if (gStatFlags & HAVE_KERNEL_REG)
         unregister_chrdev(gDrvrMajor, DEVICE_NAME);
-    }
 
     gStatFlags = 0;
     printk(KERN_ALERT"%s driver is unloaded\n", DEVICE_NAME);
