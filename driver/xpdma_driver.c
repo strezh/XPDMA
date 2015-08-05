@@ -23,6 +23,8 @@ unsigned int gStatFlags = 0x00;     // Status flags used for cleanup
 unsigned long gBaseHdwr;            // Base register address (Hardware address)
 unsigned long gBaseLen;             // Base register address Length
 void *gBaseVirt = NULL;             // Base register address (Virtual address, for I/O).
+char *gReadBuffer = NULL;           // Pointer to dword aligned DMA Read buffer.
+char *gWriteBuffer = NULL;          // Pointer to dword aligned DMA Write buffer.
 
 
 
@@ -122,8 +124,19 @@ static int xpdma_init (void)
     }
     pci_set_consistent_dma_mask(gDev, 0x7fffffff);
 
+    gReadBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
+    if (NULL == gReadBuffer) {
+        printk(KERN_CRIT"%s: Init: Unable to allocate gReadBuffer.\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
+    printk(KERN_CRIT"%s: Init: Read buffer successfully allocated: 0x%08X\n", DEVICE_NAME, gReadBuffer);
 
-
+    gWriteBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
+    if (NULL == gWriteBuffer) {
+        printk(KERN_CRIT"%s: Init: Unable to allocate gWriteBuffer.\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
+    printk(KERN_CRIT"%s: Init: Write buffer successfully allocated: 0x%08X\n", DEVICE_NAME, gReadBuffer);
 
     // Register driver as a character device.
     if (0 > register_chrdev(gDrvrMajor, DEVICE_NAME, &xpdma_intf)) {
@@ -135,7 +148,7 @@ static int xpdma_init (void)
     gStatFlags = gStatFlags | HAVE_KERNEL_REG;
     printk("%s driver is loaded\n", DEVICE_NAME);
 
-    return 0;
+    return (SUCCESS);
 }
 
 static void xpdma_exit (void)
@@ -144,6 +157,15 @@ static void xpdma_exit (void)
     if (gStatFlags & HAVE_MEM_REGION) {
         (void) release_mem_region(gBaseHdwr, gBaseLen);
     }
+
+    // Free Write and Read buffers allocated to use
+    if (NULL != gReadBuffer)
+        (void) kfree(gReadBuffer);
+    if (NULL != gWriteBuffer)
+        (void) kfree(gWriteBuffer);
+
+    gReadBuffer = NULL;
+    gWriteBuffer = NULL;
 
     //  Free up memory pointed to by virtual address
     if (gBaseVirt != NULL)

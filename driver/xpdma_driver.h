@@ -9,4 +9,7 @@
 #define SUCCESS      0
 #define CRIT_ERR    -1
 
+// Max CDMA buffer size
+#define BUF_SIZE    (8 * 1024 * 1024)
+
 #endif //XPDMA_DRIVER_H
