@@ -105,7 +105,7 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
   create_bd_pin -dir I -type rst peripheral_aresetn
 
   # Create instance: translation_bram_mem, and set properties
-  set translation_bram_mem [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.0 translation_bram_mem ]
+  set translation_bram_mem [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.2 translation_bram_mem ]
   set_property -dict [list CONFIG.Memory_Type {True_Dual_Port_RAM}] $translation_bram_mem
 
   # Create instance: axi_cdma_1, and set properties
@@ -113,7 +113,7 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
   set_property -dict [list CONFIG.C_M_AXI_DATA_WIDTH {64} CONFIG.C_M_AXI_MAX_BURST_LEN {64}] $axi_cdma_1
 
   # Create instance: axi_pcie_1, and set properties
-  set axi_pcie_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_pcie:2.2 axi_pcie_1 ]
+  set axi_pcie_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_pcie:2.5 axi_pcie_1 ]
   set_property -dict [list CONFIG.XLNX_REF_BOARD {KC705_REVC}      \
                            CONFIG.PCIE_CAP_SLOT_IMPLEMENTED {true} \
                            CONFIG.NO_OF_LANES {X4}                 \
@@ -132,15 +132,15 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
                            CONFIG.S_AXI_SUPPORTS_NARROW_BURST {true}] $axi_pcie_1
 
   # Create instance: translation_bram, and set properties
-  set translation_bram [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:3.0 translation_bram ]
+  set translation_bram [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.0 translation_bram ]
   set_property -dict [list CONFIG.DATA_WIDTH {64}] $translation_bram
 
   # Create instance: Constant block for the PCIe Core
-  set intx_msi_constant [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.0 intx_msi_constant]
+  set intx_msi_constant [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 intx_msi_constant]
   set_property -dict [list CONFIG.CONST_WIDTH {1} CONFIG.CONST_VAL {0}] $intx_msi_constant
 
   # Create instance: Constant block for the PCIe Core
-  set msi_vector_constant [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.0 msi_vector_constant]
+  set msi_vector_constant [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 msi_vector_constant]
   set_property -dict [list CONFIG.CONST_WIDTH {5} CONFIG.CONST_VAL {0}] $msi_vector_constant
 
   # Create instance: axi_interconnect_block
@@ -214,7 +214,7 @@ proc generateSubsystem {migFile projName designName} {
   set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not}] $ddr_reset_inv
 
   # Create Instance ddr3_mem and set properties
-  set ddr_mem [ create_bd_cell -type ip -vlnv xilinx.com:ip:mig_7series:2.0 ddr3_mem ]
+  set ddr_mem [ create_bd_cell -type ip -vlnv xilinx.com:ip:mig_7series:2.2 ddr3_mem ]
   file copy ${migFile} ./${projName}/${projName}.srcs/sources_1/bd/${designName}/ip/${designName}_ddr3_mem_0/mig_a.prj
   set_property CONFIG.XML_INPUT_FILE {mig_a.prj} $ddr_mem
 
