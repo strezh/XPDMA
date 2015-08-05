@@ -14,7 +14,8 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("PCIe driver for Xilinx CDMA subsystem (XAPP1171), Linux");
 MODULE_AUTHOR("Strezhik Iurii");
 
-#define HAVE_KERNEL_REG   0x01      // Kernel registration
+#define HAVE_KERNEL_REG     0x01    // Kernel registration
+#define HAVE_MEM_REGION     0x02    // I/O Memory region
 
 int gDrvrMajor = 241;               // Major number not dynamic.
 struct pci_dev *gDev = NULL;        // PCI device structure.
@@ -98,6 +99,30 @@ static int xpdma_init (void)
     }
     printk(KERN_INFO"%s: Init: Virt HW address %X\n", DEVICE_NAME, (unsigned int) gBaseVirt);
 
+    // Check the memory region to see if it is in use
+    if (0 > check_mem_region(gBaseHdwr, gBaseLen)) {
+        printk(KERN_WARNING"%s: Init: Memory in use.\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
+
+    // Try to gain exclusive control of memory for demo hardware.
+    request_mem_region(gBaseHdwr, gBaseLen, "Xilinx_PCIe_CDMA_Driver");
+    gStatFlags = gStatFlags | HAVE_MEM_REGION;
+    printk(KERN_INFO"%s: Init: Initialize Hardware Done..\n", DEVICE_NAME);
+
+    // Bus Master Enable
+    if (0 > pci_enable_device(gDev)) {
+        printk(KERN_WARNING"%s: Init: Device not enabled.\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
+
+    // Set DMA Mask
+    if (0 > pci_set_dma_mask(gDev, 0x7fffffff)) {
+        printk("%s: Init: DMA not supported\n", DEVICE_NAME);
+    }
+    pci_set_consistent_dma_mask(gDev, 0x7fffffff);
+
+
 
 
     // Register driver as a character device.
@@ -115,6 +140,11 @@ static int xpdma_init (void)
 
 static void xpdma_exit (void)
 {
+    // Check if we have a memory region and free it
+    if (gStatFlags & HAVE_MEM_REGION) {
+        (void) release_mem_region(gBaseHdwr, gBaseLen);
+    }
+
     //  Free up memory pointed to by virtual address
     if (gBaseVirt != NULL)
         iounmap(gBaseVirt);
