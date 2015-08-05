@@ -160,8 +160,8 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
   connect_bd_intf_net -intf_net user_m_axi_bus [get_bd_intf_pins /pcie_cdma_subsystem/user_m_axi] [get_bd_intf_pins /pcie_cdma_subsystem/axi_interconnect_block/user_m_axi]
 
   # Create port connections
-  connect_bd_net -net msi_vector_constant_net [get_bd_pins /pcie_cdma_subsystem/msi_vector_constant/const] [get_bd_pins /pcie_cdma_subsystem/axi_pcie_1/MSI_Vector_Num]
-  connect_bd_net -net intx_msi_constant_net [get_bd_pins /pcie_cdma_subsystem/intx_msi_constant/const] [get_bd_pins /pcie_cdma_subsystem/axi_pcie_1/INTX_MSI_Request]
+  connect_bd_net -net msi_vector_constant_net [get_bd_pins /pcie_cdma_subsystem/msi_vector_constant/dout] [get_bd_pins /pcie_cdma_subsystem/axi_pcie_1/MSI_Vector_Num]
+  connect_bd_net -net intx_msi_constant_net [get_bd_pins /pcie_cdma_subsystem/intx_msi_constant/dout] [get_bd_pins /pcie_cdma_subsystem/axi_pcie_1/INTX_MSI_Request]
   connect_bd_net -net pcie_axi_aclk [get_bd_pins /pcie_cdma_subsystem/user_aclk_out] [get_bd_pins /pcie_cdma_subsystem/axi_pcie_1/axi_aclk_out] [get_bd_pins /pcie_cdma_subsystem/axi_pcie_1/axi_aclk] [get_bd_pins /pcie_cdma_subsystem/translation_bram/S_AXI_ACLK] [get_bd_pins /pcie_cdma_subsystem/axi_cdma_1/s_axi_lite_aclk] [get_bd_pins /pcie_cdma_subsystem/axi_interconnect_block/aclk] [get_bd_pins /pcie_cdma_subsystem/axi_cdma_1/m_axi_aclk]
   connect_bd_net -net pcie_mmcm_lock [get_bd_pins /pcie_cdma_subsystem/mmcm_lock] [get_bd_pins /pcie_cdma_subsystem/axi_pcie_1/mmcm_lock]
   connect_bd_net -net axi_peripheral_aresetn [get_bd_pins /pcie_cdma_subsystem/peripheral_aresetn] [get_bd_pins /pcie_cdma_subsystem/axi_pcie_1/axi_aresetn] [get_bd_pins /pcie_cdma_subsystem/translation_bram/S_AXI_ARESETN] [get_bd_pins /pcie_cdma_subsystem/axi_cdma_1/s_axi_lite_aresetn]
