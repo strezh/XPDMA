@@ -4,4 +4,8 @@ project1/*
 *.jou
 *.log
 *.str
-
+driver/.*
+*.o
+*.mod.*
+Module.symvers
+modules.order
