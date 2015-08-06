@@ -7,6 +7,7 @@
 #include <linux/init.h>		/* Needed for the macros */
 #include <linux/fs.h>       /* Needed for files operations */
 #include <linux/pci.h>      /* Needed for PCI */
+#include <asm/uaccess.h>    /* Needed for copy_to_user & copy_from_user */
 
 #include "xpdma_driver.h"
 
@@ -31,31 +32,44 @@ char *gWriteBuffer = NULL;          // Pointer to dword aligned DMA Write buffer
 // Prototypes
 ssize_t xpdma_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos);
 ssize_t xpdma_read (struct file *filp, char *buf, size_t count, loff_t *f_pos);
-int xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
+long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
 int xpdma_open(struct inode *inode, struct file *filp);
 int xpdma_release(struct inode *inode, struct file *filp);
+u32 xpdma_readReg (u32 dw_offset);
+void xpdma_writeReg (u32 dw_offset, u32 val);
 
 // Aliasing write, read, ioctl, etc...
 struct file_operations xpdma_intf = {
-        read : xpdma_read,
-        write : xpdma_write,
+        read           : xpdma_read,
+        write          : xpdma_write,
         unlocked_ioctl : xpdma_ioctl,
-        //llseek:     xpdma_lseek,
-        open : xpdma_open,
-        release : xpdma_release,
+        //llseek         : xpdma_lseek,
+        open           : xpdma_open,
+        release        : xpdma_release,
 };
 
 ssize_t xpdma_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos)
 {
+    if (copy_from_user(gWriteBuffer, buf, count))
+        printk("%s: XPCIe_Write: Failed copy to user.\n", DEVICE_NAME);
+
+    printk(KERN_INFO"%s: XPCIe_Write: %lu bytes have been written...\n", DEVICE_NAME, count);
+
+    memcpy((char *)gReadBuffer, buf, count);
+    printk(KERN_INFO"%s: XPCIe_Write: %lu bytes have been written...\n", DEVICE_NAME, count);
     return (SUCCESS);
 }
 
 ssize_t xpdma_read (struct file *filp, char *buf, size_t count, loff_t *f_pos)
 {
+    if (copy_to_user(buf, gReadBuffer, count))
+        printk("%s: XPCIe_Read: Failed copy to user.\n", DEVICE_NAME);
+
+    printk(KERN_INFO"%s: XPCIe_Read: %lu bytes have been read...\n", DEVICE_NAME, count);
     return (SUCCESS);
 }
 
-int xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
+long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
     return (SUCCESS);
 }
@@ -70,6 +84,18 @@ int xpdma_release(struct inode *inode, struct file *filp)
 {
     printk(KERN_INFO"%s: Release: module released\n", DEVICE_NAME);
     return (SUCCESS);
+}
+
+u32 xpdma_readReg (u32 dw_offset)
+{
+    u32 ret = 0;
+    ret = readl(gBaseVirt + (4 * dw_offset));
+    return ret;
+}
+
+void xpdma_writeReg (u32 dw_offset, u32 val)
+{
+    writel(val, (gBaseVirt + (4 * dw_offset)));
 }
 
 static int xpdma_init (void)
@@ -99,7 +125,7 @@ static int xpdma_init (void)
         printk(KERN_WARNING"%s: Init: Could not remap memory.\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-    printk(KERN_INFO"%s: Init: Virt HW address %X\n", DEVICE_NAME, (unsigned int) gBaseVirt);
+    printk(KERN_INFO"%s: Init: Virt HW address %lX\n", DEVICE_NAME, (size_t) gBaseVirt);
 
     // Check the memory region to see if it is in use
     if (0 > check_mem_region(gBaseHdwr, gBaseLen)) {
@@ -129,14 +155,14 @@ static int xpdma_init (void)
         printk(KERN_CRIT"%s: Init: Unable to allocate gReadBuffer.\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-    printk(KERN_CRIT"%s: Init: Read buffer successfully allocated: 0x%08X\n", DEVICE_NAME, gReadBuffer);
+    printk(KERN_CRIT"%s: Init: Read buffer successfully allocated: 0x%08lX\n", DEVICE_NAME, (size_t) gReadBuffer);
 
     gWriteBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
     if (NULL == gWriteBuffer) {
         printk(KERN_CRIT"%s: Init: Unable to allocate gWriteBuffer.\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-    printk(KERN_CRIT"%s: Init: Write buffer successfully allocated: 0x%08X\n", DEVICE_NAME, gReadBuffer);
+    printk(KERN_CRIT"%s: Init: Write buffer successfully allocated: 0x%08lX\n", DEVICE_NAME, (size_t) gWriteBuffer);
 
     // Register driver as a character device.
     if (0 > register_chrdev(gDrvrMajor, DEVICE_NAME, &xpdma_intf)) {
