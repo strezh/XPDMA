@@ -1,6 +1,6 @@
 *.swp
 *.tmp
-project1/*
+project_1/*
 *.jou
 *.log
 *.str

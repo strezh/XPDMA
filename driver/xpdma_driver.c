@@ -15,6 +15,29 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("PCIe driver for Xilinx CDMA subsystem (XAPP1171), Linux");
 MODULE_AUTHOR("Strezhik Iurii");
 
+// Max CDMA buffer size
+#define BUF_SIZE            (64 * 1024) // 64 kBytes
+#define MAX_BTT             0x007FFFFF  // 8 MBytes maximum for DMA Transfer */
+
+#define TRANS_BRAM_ADDR     0x00000000  // Translation BRAM offset
+#define AXI_PCIE_CTL_ADDR   0x00008000  // AXI PCIe control offset
+#define AXI_CDMA_ADDR       0x0000c000  // AXI CDMA LITE control offset
+
+#define CDMA_CR_SG_EN       0x00000008  // Scatter gather mode
+
+/* Scatter Gather Transfer descriptor */
+typedef struct {
+    u32 next_desc;	/* 0x00 */
+    u32 na1;	/* 0x04 */
+    u32 src_addr;	/* 0x08 */
+    u32 na2;	/* 0x0C */
+    u32 dest_addr;	/* 0x10 */
+    u32 na3;	/* 0x14 */
+    u32 control;	/* 0x18 */
+    u32 status;	/* 0x1C */
+} __aligned(64) sg_desc_t;
+
+
 #define HAVE_KERNEL_REG     0x01    // Kernel registration
 #define HAVE_MEM_REGION     0x02    // I/O Memory region
 
@@ -35,8 +58,8 @@ ssize_t xpdma_read (struct file *filp, char *buf, size_t count, loff_t *f_pos);
 long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
 int xpdma_open(struct inode *inode, struct file *filp);
 int xpdma_release(struct inode *inode, struct file *filp);
-u32 xpdma_readReg (u32 dw_offset);
-void xpdma_writeReg (u32 dw_offset, u32 val);
+static inline u32 xpdma_readReg (u32 reg);
+static inline void xpdma_writeReg (u32 reg, u32 val);
 
 // Aliasing write, read, ioctl, etc...
 struct file_operations xpdma_intf = {
@@ -86,16 +109,15 @@ int xpdma_release(struct inode *inode, struct file *filp)
     return (SUCCESS);
 }
 
-u32 xpdma_readReg (u32 dw_offset)
+/* IO access */
+static inline u32 xpdma_readReg (u32 reg)
 {
-    u32 ret = 0;
-    ret = readl(gBaseVirt + (4 * dw_offset));
-    return ret;
+    return readl(gBaseVirt + reg);
 }
 
-void xpdma_writeReg (u32 dw_offset, u32 val)
+static inline void xpdma_writeReg (u32 reg, u32 val)
 {
-    writel(val, (gBaseVirt + (4 * dw_offset)));
+    writel(val, (gBaseVirt + reg));
 }
 
 static int xpdma_init (void)
