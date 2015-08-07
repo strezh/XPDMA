@@ -41,6 +41,7 @@ typedef struct {
 #define HAVE_KERNEL_REG     0x01    // Kernel registration
 #define HAVE_MEM_REGION     0x02    // I/O Memory region
 
+
 int gDrvrMajor = 241;               // Major number not dynamic.
 struct pci_dev *gDev = NULL;        // PCI device structure.
 unsigned int gStatFlags = 0x00;     // Status flags used for cleanup
@@ -94,6 +95,41 @@ ssize_t xpdma_read (struct file *filp, char *buf, size_t count, loff_t *f_pos)
 
 long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
+    u32 regx = 0;
+
+    printk(KERN_INFO"%s: Ioctl command: %d \n", DEVICE_NAME, cmd);
+    switch (cmd) {
+        case IOCTL_RESET:
+            // TODO: Reset CDMA
+            break;
+        case IOCTL_RDCDMAREG: // Read CDMA config registers
+            printk(KERN_INFO"%s: Read Register 0x%X\n", DEVICE_NAME, (*(u32 *)arg));
+            regx = xpdma_readReg(*((u32 *)arg));
+            *((u32 *)arg) = regx;
+            printk(KERN_INFO"%s: Readed value 0x%X\n", DEVICE_NAME, regx);
+            break;
+        case IOCTL_WRCDMAREG: // Write CDMA config registers
+            printk(KERN_INFO"%s: Write Register 0x%X\n", DEVICE_NAME, (*(cdmaReg_t *)arg).reg);
+            printk(KERN_INFO"%s: Write Value 0x%X\n", DEVICE_NAME, (*(cdmaReg_t *)arg).value);
+            xpdma_writeReg((*(cdmaReg_t *)arg).reg, (*(cdmaReg_t *)arg).value);
+            break;
+        case IOCTL_RDCFGREG:
+            // TODO: Read PCIe config registers
+            break;
+        case IOCTL_WRCFGREG:
+            // TODO: Write PCIe config registers
+            break;
+        case IOCTL_SEND:
+            // TODO: Send data from Host system to AXI CDMA
+            break;
+        case IOCTL_RECV:
+            // TODO: Receive data from AXI CDMA to Host system
+
+            break;
+        default:
+            break;
+    }
+
     return (SUCCESS);
 }
 
