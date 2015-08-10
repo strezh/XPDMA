@@ -23,15 +23,26 @@ MODULE_AUTHOR("Strezhik Iurii");
 #define AXI_PCIE_CTL_ADDR   0x00008000  // AXI PCIe control offset
 #define AXI_CDMA_ADDR       0x0000c000  // AXI CDMA LITE control offset
 
+#define AXI_PCIE_DM_ADDR    0x80000000  // AXI:BAR1 Address
+#define AXI_PCIE_SG_ADDR    0x80800000  // AXI:BAR0 Address
+#define AXI_BRAM_ADDR       0x81000000  // AXI Translation BRAM Address
+#define AXI_DDR3_ADDR       0x00000000  // AXI DDR3 Address
+
+#define SG_OFFSET           0x40        // Scatter Gather next descriptor offset
+#define BRAM_STEP           0x8         // Translation Vector Length
+#define ADDR_BTT            0x00000008  // 64 bit address translation descriptor control length
+
 #define CDMA_CR_SG_EN       0x00000008  // Scatter gather mode
+
+#define AXIBAR2PCIEBAR_1U   0x208
 
 /* Scatter Gather Transfer descriptor */
 typedef struct {
-    u32 next_desc;	/* 0x00 */
+    u32 nextDesc;	/* 0x00 */
     u32 na1;	/* 0x04 */
-    u32 src_addr;	/* 0x08 */
+    u32 srcAddr;	/* 0x08 */
     u32 na2;	/* 0x0C */
-    u32 dest_addr;	/* 0x10 */
+    u32 destAddr;	/* 0x10 */
     u32 na3;	/* 0x14 */
     u32 control;	/* 0x18 */
     u32 status;	/* 0x1C */
@@ -50,7 +61,7 @@ unsigned long gBaseLen;             // Base register address Length
 void *gBaseVirt = NULL;             // Base register address (Virtual address, for I/O).
 char *gReadBuffer = NULL;           // Pointer to dword aligned DMA Read buffer.
 char *gWriteBuffer = NULL;          // Pointer to dword aligned DMA Write buffer.
-
+sg_desc_t *gDescChain = NULL;        // Address Translation Descriptors chain
 
 
 // Prototypes
@@ -133,6 +144,68 @@ long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
     return (SUCCESS);
 }
 
+sg_desc_t *create_desc_chain(int direction, void *data, u32 size, u32 addr)
+{
+    // length of desctriptors chain
+    int chainLength = ((size + MAX_BTT - 1) / MAX_BTT);
+    int count = 0;
+
+    u32 sgAddr = AXI_PCIE_SG_ADDR; // current descriptor address in chain
+    u32 bramAddr = AXI_BRAM_ADDR ; // Translation BRAM Address
+    u32 btt = 0;                   // current descriptor BTT
+    u32 unmappedSize = size;       // unmapped data size
+    u32 srcAddr = 0;               // source address (SG_DM of DDR3)
+    u32 destAddr = 0;              // destination address (SG_DM of DDR3)
+
+    if (direction == PCI_DMA_FROMDEVICE) {
+        srcAddr  = AXI_DDR3_ADDR + addr;
+        destAddr = AXI_PCIE_DM_ADDR;
+    } else if (direction == PCI_DMA_TODEVICE) {
+        srcAddr  = AXI_PCIE_DM_ADDR;
+        destAddr = AXI_DDR3_ADDR + addr;
+    } else {
+        printk(KERN_INFO"%s: Descriptors Chain create error: unknown direction\n", DEVICE_NAME);
+        return NULL;
+    }
+
+    gDescChain = kmalloc(2 * sizeof(sg_desc_t) * chainLength, GFP_KERNEL);
+    if (gDescChain == NULL) {
+        printk(KERN_INFO"%s: Descriptors Chain create error: memory allocation failed\n", DEVICE_NAME);
+        return NULL;
+    }
+
+    // fill descriptor chain
+    for (count = 0; count < chainLength; ++count) {
+        sg_desc_t *addrDesc = gDescChain + 2 * count; // address translation descriptor
+        sg_desc_t *dataDesc = addrDesc + 1;           // target data transfer descriptor
+        btt = (unmappedSize > MAX_BTT) ? MAX_BTT : unmappedSize;
+
+        // fill address translation descriptor
+        addrDesc->nextDesc = sgAddr + SG_OFFSET;
+        addrDesc->srcAddr  = bramAddr;
+        addrDesc->destAddr = AXIBAR2PCIEBAR_1U;
+        addrDesc->control   = ADDR_BTT;
+        addrDesc->status    = 0x0;
+        sgAddr += SG_OFFSET;
+
+        // fill target data transfer descriptor
+        dataDesc->nextDesc = sgAddr + SG_OFFSET;
+        dataDesc->srcAddr  = srcAddr;
+        dataDesc->destAddr = destAddr;
+        dataDesc->control   = btt;
+        dataDesc->status    = 0x0;
+        sgAddr += SG_OFFSET;
+
+        bramAddr += BRAM_STEP;
+        unmappedSize -= btt;
+    }
+
+    gDescChain[2*chainLength - 1].nextDesc = AXI_PCIE_SG_ADDR; // tail descriptor pointed to head of chain
+
+    return (SUCCESS);
+}
+
+
 int xpdma_open(struct inode *inode, struct file *filp)
 {
     printk(KERN_INFO"%s: Open: module opened\n", DEVICE_NAME);
@@ -208,14 +281,14 @@ static int xpdma_init (void)
     }
     pci_set_consistent_dma_mask(gDev, 0x7fffffff);
 
-    gReadBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
+    gReadBuffer = kmalloc(MAX_BTT, GFP_KERNEL);
     if (NULL == gReadBuffer) {
         printk(KERN_CRIT"%s: Init: Unable to allocate gReadBuffer.\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
     printk(KERN_CRIT"%s: Init: Read buffer successfully allocated: 0x%08lX\n", DEVICE_NAME, (size_t) gReadBuffer);
 
-    gWriteBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
+    gWriteBuffer = kmalloc(MAX_BTT, GFP_KERNEL);
     if (NULL == gWriteBuffer) {
         printk(KERN_CRIT"%s: Init: Unable to allocate gWriteBuffer.\n", DEVICE_NAME);
         return (CRIT_ERR);
