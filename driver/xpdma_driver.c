@@ -16,8 +16,9 @@ MODULE_DESCRIPTION("PCIe driver for Xilinx CDMA subsystem (XAPP1171), Linux");
 MODULE_AUTHOR("Strezhik Iurii");
 
 // Max CDMA buffer size
-#define BUF_SIZE            (64 * 1024) // 64 kBytes
 #define MAX_BTT             0x007FFFFF  // 8 MBytes maximum for DMA Transfer */
+//#define BUF_SIZE            (4<<20)     // 4 MBytes
+#define BUF_SIZE            16*PAGE_SIZE   // 64 kBytes
 
 #define TRANS_BRAM_ADDR     0x00000000  // Translation BRAM offset
 #define AXI_PCIE_CTL_ADDR   0x00008000  // AXI PCIe control offset
@@ -64,6 +65,7 @@ char *gWriteBuffer = NULL;          // Pointer to dword aligned DMA Write buffer
 sg_desc_t *gDescChain = NULL;        // Address Translation Descriptors chain
 
 
+
 // Prototypes
 ssize_t xpdma_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos);
 ssize_t xpdma_read (struct file *filp, char *buf, size_t count, loff_t *f_pos);
@@ -85,20 +87,65 @@ struct file_operations xpdma_intf = {
 
 ssize_t xpdma_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos)
 {
-    if (copy_from_user(gWriteBuffer, buf, count))
-        printk("%s: XPCIe_Write: Failed copy to user.\n", DEVICE_NAME);
+    dma_addr_t dma_addr;
+
+    /*if ( (count % 4) != 0 )  {
+        printk("%s: xpdma_writeMem: Buffer length not dword aligned.\n",DEVICE_NAME);
+        return (CRIT_ERR);
+    }*/
+
+    // Now it is safe to copy the data from user space.
+    if ( copy_from_user(gWriteBuffer, buf, count) )  {
+        printk("%s: xpdma_writeMem: Failed copy from user.\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
+
+    //TODO: set DMA semaphore
+    dma_addr = pci_map_single(gDev, gWriteBuffer, BUF_SIZE, PCI_DMA_TODEVICE);
+    if ( 0 == dma_addr )  {
+        printk("%s: xpdma_writeMem: Map error.\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
+
+    printk("%s: xpdma_writeMem: WriteBuf Virt Addr = %lX Phy Addr = %lX.\n",
+           DEVICE_NAME, (size_t)gWriteBuffer, (size_t)dma_addr);
+
+    pci_unmap_single(gDev, dma_addr, BUF_SIZE, PCI_DMA_TODEVICE);
+
+    //TODO: release DMA semaphore
 
     printk(KERN_INFO"%s: XPCIe_Write: %lu bytes have been written...\n", DEVICE_NAME, count);
 
-    memcpy((char *)gReadBuffer, buf, count);
-    printk(KERN_INFO"%s: XPCIe_Write: %lu bytes have been written...\n", DEVICE_NAME, count);
     return (SUCCESS);
 }
 
 ssize_t xpdma_read (struct file *filp, char *buf, size_t count, loff_t *f_pos)
 {
-    if (copy_to_user(buf, gReadBuffer, count))
-        printk("%s: XPCIe_Read: Failed copy to user.\n", DEVICE_NAME);
+    dma_addr_t dma_addr;
+
+    //TODO: set DMA semaphore
+    dma_addr = pci_map_single(gDev, gReadBuffer, BUF_SIZE, PCI_DMA_FROMDEVICE);
+
+    if ( 0 == dma_addr )  {
+        printk("%s: xpdma_readMem: Map error.\n",DEVICE_NAME);
+        return (CRIT_ERR);
+    }
+
+    printk("%s: xpdma_readMem: ReadBuf Virt Addr = %lX Phy Addr = %lX.\n",
+           DEVICE_NAME, (size_t)gReadBuffer, (size_t)dma_addr);
+
+    // Unmap the DMA buffer so it is safe for normal access again.
+    pci_unmap_single(gDev, dma_addr, BUF_SIZE, PCI_DMA_FROMDEVICE);
+
+    //TODO: release DMA semaphore
+
+    memcpy((char *)gReadBuffer, gWriteBuffer, BUF_SIZE); // debug cycle
+
+    // Now it is safe to copy the data to user space.
+    if ( copy_to_user(buf, gReadBuffer, count) )  {
+        printk("%s: xpdma_readMem: Failed copy to user.\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
 
     printk(KERN_INFO"%s: XPCIe_Read: %lu bytes have been read...\n", DEVICE_NAME, count);
     return (SUCCESS);
@@ -205,6 +252,21 @@ sg_desc_t *create_desc_chain(int direction, void *data, u32 size, u32 addr)
     return (SUCCESS);
 }
 
+ssize_t xpdma_readMem(char *buf, size_t count)
+{
+
+}
+
+
+ssize_t xpdma_writeMem(const char *buf, size_t count)
+{
+
+}
+
+//dma_addr_t dma_handle;
+//dma_handle = pci_map_single(dev, addr, size, direction);
+//and to unmap it:
+//        pci_unmap_single(dev, dma_handle, size, direction);
 
 int xpdma_open(struct inode *inode, struct file *filp)
 {
@@ -281,14 +343,14 @@ static int xpdma_init (void)
     }
     pci_set_consistent_dma_mask(gDev, 0x7fffffff);
 
-    gReadBuffer = kmalloc(MAX_BTT, GFP_KERNEL);
+    gReadBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
     if (NULL == gReadBuffer) {
         printk(KERN_CRIT"%s: Init: Unable to allocate gReadBuffer.\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
     printk(KERN_CRIT"%s: Init: Read buffer successfully allocated: 0x%08lX\n", DEVICE_NAME, (size_t) gReadBuffer);
 
-    gWriteBuffer = kmalloc(MAX_BTT, GFP_KERNEL);
+    gWriteBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
     if (NULL == gWriteBuffer) {
         printk(KERN_CRIT"%s: Init: Unable to allocate gWriteBuffer.\n", DEVICE_NAME);
         return (CRIT_ERR);
