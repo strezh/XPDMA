@@ -49,6 +49,12 @@ typedef struct {
     u32 status;	/* 0x1C */
 } __aligned(64) sg_desc_t;
 
+// Struct Used for send/receive data
+typedef struct {
+    char *data;
+    u32 count;
+    u32 addr;
+} cdmaBuffer_t;
 
 #define HAVE_KERNEL_REG     0x01    // Kernel registration
 #define HAVE_MEM_REGION     0x02    // I/O Memory region
@@ -74,6 +80,8 @@ int xpdma_open(struct inode *inode, struct file *filp);
 int xpdma_release(struct inode *inode, struct file *filp);
 static inline u32 xpdma_readReg (u32 reg);
 static inline void xpdma_writeReg (u32 reg, u32 val);
+ssize_t xpdma_send (const char *data, size_t count, u32 addr);
+ssize_t xpdma_recv (char *data, size_t count, u32 addr);
 
 // Aliasing write, read, ioctl, etc...
 struct file_operations xpdma_intf = {
@@ -178,11 +186,18 @@ long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
             // TODO: Write PCIe config registers
             break;
         case IOCTL_SEND:
-            // TODO: Send data from Host system to AXI CDMA
+            // Send data from Host system to AXI CDMA
+            printk(KERN_INFO"%s: Send Data size 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).count);
+            printk(KERN_INFO"%s: Send Data address 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).addr);
+            xpdma_send ((*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
+            printk(KERN_INFO"%s: Sended\n", DEVICE_NAME);
             break;
         case IOCTL_RECV:
-            // TODO: Receive data from AXI CDMA to Host system
-
+            // Receive data from AXI CDMA to Host system
+            printk(KERN_INFO"%s: Receive Data size 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).count);
+            printk(KERN_INFO"%s: Receive Data address 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).addr);
+            xpdma_recv ((*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
+            printk(KERN_INFO"%s: Received\n", DEVICE_NAME);
             break;
         default:
             break;
@@ -252,22 +267,6 @@ sg_desc_t *create_desc_chain(int direction, void *data, u32 size, u32 addr)
     return (SUCCESS);
 }
 
-ssize_t xpdma_readMem(char *buf, size_t count)
-{
-
-}
-
-
-ssize_t xpdma_writeMem(const char *buf, size_t count)
-{
-
-}
-
-//dma_addr_t dma_handle;
-//dma_handle = pci_map_single(dev, addr, size, direction);
-//and to unmap it:
-//        pci_unmap_single(dev, dma_handle, size, direction);
-
 int xpdma_open(struct inode *inode, struct file *filp)
 {
     printk(KERN_INFO"%s: Open: module opened\n", DEVICE_NAME);
@@ -289,6 +288,16 @@ static inline u32 xpdma_readReg (u32 reg)
 static inline void xpdma_writeReg (u32 reg, u32 val)
 {
     writel(val, (gBaseVirt + reg));
+}
+
+ssize_t xpdma_send (const char *data, size_t count, u32 addr)
+{
+    return (SUCCESS);
+}
+
+ssize_t xpdma_recv (char *data, size_t count, u32 addr)
+{
+    return (SUCCESS);
 }
 
 static int xpdma_init (void)
