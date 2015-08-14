@@ -27,6 +27,7 @@ enum {
 
     IOCTL_SEND,      // Send data from Host system to AXI CDMA
     IOCTL_RECV,      // Receive data from AXI CDMA to Host system
+    IOCTL_INFO,      // Show debug information
 };
 
 #endif //XPDMA_DRIVER_H
