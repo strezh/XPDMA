@@ -361,40 +361,78 @@ ssize_t create_desc_chain(int direction, void *data, u32 size, u32 addr)
     descriptor = gDescChain.desc; // address translation descriptor
     btt = (unmappedSize > MAX_BTT) ? MAX_BTT : unmappedSize;
 
-    // Descriptor 0
-    descriptor->nextDesc = sgAddr + SG_OFFSET;
-    descriptor->srcAddr  = AXI_BRAM_ADDR + BRAM_OFFSET;
-    descriptor->destAddr = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
-    descriptor->control  = ADDR_BTT;
-    descriptor->status   = 0x00000000;
-    sgAddr += SG_OFFSET;
-    descriptor++;        // target data transfer descriptor
+    if (direction == PCI_DMA_TODEVICE) {
+        // Descriptor 0
+        descriptor->nextDesc = sgAddr + SG_OFFSET;
+        descriptor->srcAddr = AXI_BRAM_ADDR + BRAM_OFFSET;
+        descriptor->destAddr = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
+        descriptor->control = ADDR_BTT;
+        descriptor->status = 0x00000000;
+        sgAddr += SG_OFFSET;
+        descriptor++;        // target data transfer descriptor
 
-    // Descriptor 1
-    descriptor->nextDesc = sgAddr + SG_OFFSET;
-    descriptor->srcAddr  = AXI_PCIE_DM_ADDR;
-    descriptor->destAddr = AXI_DDR3_ADDR + 0x00000000;
-    descriptor->control  = 0x10000;
-    descriptor->status   = 0x00000000;
-    sgAddr += SG_OFFSET;
-    descriptor++;        // target data transfer descriptor
+        // Descriptor 1
+        descriptor->nextDesc = sgAddr + SG_OFFSET;
+        descriptor->srcAddr = AXI_PCIE_DM_ADDR;
+        descriptor->destAddr = AXI_DDR3_ADDR + 0x00000000;
+        descriptor->control = 0x10000;
+        descriptor->status = 0x00000000;
+        sgAddr += SG_OFFSET;
+        descriptor++;        // target data transfer descriptor
 
-    // Descriptor 2
-    descriptor->nextDesc = sgAddr + SG_OFFSET;
-    descriptor->srcAddr  = AXI_BRAM_ADDR + BRAM_STEP;
-    descriptor->destAddr = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
-    descriptor->control  = ADDR_BTT;
-    descriptor->status   = 0x00000000;
-    sgAddr += SG_OFFSET;
-    descriptor++;        // target data transfer descriptor
+        // Descriptor 2
+        descriptor->nextDesc = sgAddr + SG_OFFSET;
+        descriptor->srcAddr = AXI_BRAM_ADDR + BRAM_OFFSET /*+ BRAM_STEP*/;
+        descriptor->destAddr = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
+        descriptor->control = ADDR_BTT;
+        descriptor->status = 0x00000000;
+        sgAddr += SG_OFFSET;
+        descriptor++;        // target data transfer descriptor
 
-    // Descriptor 3
-    descriptor->nextDesc = sgAddr + SG_OFFSET;
-    descriptor->srcAddr  = AXI_DDR3_ADDR + 0x00000010;
-    descriptor->destAddr = AXI_PCIE_DM_ADDR;
-    descriptor->control  = 0x10000;
-    descriptor->status   = 0x00000000;
-    sgAddr += SG_OFFSET;
+        // Descriptor 3
+        descriptor->nextDesc = sgAddr + SG_OFFSET;
+        descriptor->srcAddr = AXI_PCIE_DM_ADDR;
+        descriptor->destAddr = AXI_DDR3_ADDR + 0x00010000;
+        descriptor->control = 0x10000;
+        descriptor->status = 0x00000000;
+        sgAddr += SG_OFFSET;
+    } else {
+        // Descriptor 0
+        descriptor->nextDesc = sgAddr + SG_OFFSET;
+        descriptor->srcAddr = AXI_BRAM_ADDR + BRAM_OFFSET + BRAM_STEP;
+        descriptor->destAddr = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
+        descriptor->control = ADDR_BTT;
+        descriptor->status = 0x00000000;
+        sgAddr += SG_OFFSET;
+        descriptor++;        // target data transfer descriptor
+
+        // Descriptor 1
+        descriptor->nextDesc = sgAddr + SG_OFFSET;
+        descriptor->srcAddr = AXI_DDR3_ADDR + 0x00000000;
+        descriptor->destAddr = AXI_PCIE_DM_ADDR;
+        descriptor->control = 0x10000;
+        descriptor->status = 0x00000000;
+        sgAddr += SG_OFFSET;
+        descriptor++;        // target data transfer descriptor
+
+        // Descriptor 2
+        descriptor->nextDesc = sgAddr + SG_OFFSET;
+        descriptor->srcAddr = AXI_BRAM_ADDR + BRAM_OFFSET + BRAM_STEP;
+        descriptor->destAddr = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
+        descriptor->control = ADDR_BTT;
+        descriptor->status = 0x00000000;
+        sgAddr += SG_OFFSET;
+        descriptor++;        // target data transfer descriptor
+
+        // Descriptor 3
+        descriptor->nextDesc = sgAddr + SG_OFFSET;
+        descriptor->srcAddr = AXI_DDR3_ADDR + 0x00010000;
+        descriptor->destAddr = AXI_PCIE_DM_ADDR;
+        descriptor->control = 0x0001;
+        descriptor->status = 0x00000000;
+        sgAddr += SG_OFFSET;
+
+    }
 
     gDescChain.desc[2*chainLength - 1].nextDesc = AXI_PCIE_SG_ADDR; // tail descriptor pointed to head of chain
     gDescChain.headDesc = gDescChain.desc;
@@ -498,7 +536,6 @@ void show_descriptors(void)
     int c = 0;
     sg_desc_t *descriptor = gDescChain.desc;
 
-
     printk(KERN_INFO
     "%s: Translation vectors:\n", DEVICE_NAME);
     printk(KERN_INFO
@@ -524,23 +561,7 @@ void show_descriptors(void)
         printk(KERN_INFO
         "%s: status 0x%08X\n", DEVICE_NAME, descriptor->status);
         descriptor++;        // target data transfer descriptor
-
     }
-
-   /* for (c = 0; c < 4; ++c) {
-        printk(KERN_INFO
-        "%s: Descriptor %d\n", DEVICE_NAME, c);
-        printk(KERN_INFO
-        "%s: nextDesc 0x%08X\n", DEVICE_NAME, xpdma_readReg(c * 0x40 + 0x40 + 0x00));
-        printk(KERN_INFO
-        "%s: srcAddr 0x%08X\n", DEVICE_NAME, xpdma_readReg(c * 0x40 + 0x40 + 0x08));
-        printk(KERN_INFO
-        "%s: destAddr 0x%08X\n", DEVICE_NAME, xpdma_readReg(c * 0x40 + 0x40 + 0x10));
-        printk(KERN_INFO
-        "%s: control 0x%08X\n", DEVICE_NAME, xpdma_readReg(c * 0x40 + 0x40 + 0x18));
-        printk(KERN_INFO
-        "%s: status 0x%08X\n", DEVICE_NAME, xpdma_readReg(c * 0x40 + 0x40 + 0x1C));
-    }*/
 }
 
 int xpdma_open(struct inode *inode, struct file *filp)
