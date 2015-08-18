@@ -635,7 +635,7 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
     // TODO: only test! Change to real address values in pntr
 
 //    pntr =  (size_t) (dma_writeBuffer) | 0x00000000;
-    pntr =  (size_t) (gWriteHWAddr) + 0x000000000;
+    pntr =  (size_t) (gWriteHWAddr);
 //    pntr =  (size_t) (AXI_BRAM_ADDR + 0x540);
     printk(KERN_INFO"%s: 4. Write appropriate Translation Vectors\n", DEVICE_NAME);
     printk(KERN_INFO"%s: gWriteBuffer 0x%016lX\n", DEVICE_NAME, pntr);
@@ -647,7 +647,7 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
     xpdma_writeReg ((BRAM_OFFSET + 0 + 0), hignPntr);
 
 //    pntr =  (size_t) (dma_readBuffer) | 0x00000000;
-    pntr =  (size_t) (gReadHWAddr) + 0x000000000;
+    pntr =  (size_t) (gReadHWAddr);
     printk(KERN_INFO"%s: gReadBuffer 0x%016lX\n", DEVICE_NAME, pntr);
     lowPntr =  (pntr >> 0) & 0xFFFFFFFF;
     hignPntr = (pntr >> 32) & 0xFFFFFFFF;
@@ -660,13 +660,15 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
 
     // 5. Write a valid pointer to DMA CURDESC_PNTR
     printk(KERN_INFO"%s: 5. Write a valid pointer to DMA CURDESC_PNTR\n", DEVICE_NAME);
-    xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)((size_t)gDescChainHWAddr));
+    xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)(0x80800000));
+//    xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)((size_t)gDescChainHWAddr));
     //xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)(AXI_PCIE_SG_ADDR + 0x00));
 //    xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)(AXI_BRAM_ADDR + 0x40 + 0x00));
 
     // 6. Write a valid pointer to DMA TAILDESC_PNTR
     printk(KERN_INFO"%s: 6. Write a valid pointer to DMA TAILDESC_PNTR\n", DEVICE_NAME);
-    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)((size_t)(gDescChainHWAddr + 3*64)));
+    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)(0x808000c0));
+//    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)((size_t)(gDescChainHWAddr + 3*64)));
 //    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)(AXI_PCIE_SG_ADDR + 0xC0));
 //    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)(AXI_BRAM_ADDR + 0x40 + 0xC0));
 
@@ -853,11 +855,11 @@ static int xpdma_init (void)
     }
 
     // Set DMA Mask
-    if (0 > pci_set_dma_mask(gDev, 0x7fffffff)) {
+    if (0 > pci_set_dma_mask(gDev, 0x7FFFFFFFFFFFFFFF)) {
         printk("%s: Init: DMA not supported\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-    pci_set_consistent_dma_mask(gDev, 0x7fffffff);
+    pci_set_consistent_dma_mask(gDev, 0x7FFFFFFFFFFFFFFF);
 
     //gReadBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
     gReadBuffer = dma_alloc_coherent( &gDev->dev, BUF_SIZE, &gReadHWAddr, GFP_KERNEL );
