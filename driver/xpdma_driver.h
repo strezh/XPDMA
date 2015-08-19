@@ -15,6 +15,13 @@ typedef struct {
     uint32_t value;
 } cdmaReg_t;
 
+// Struct Used for send/receive data
+typedef struct {
+    void *data;
+    uint32_t count;
+    uint32_t addr;
+} cdmaBuffer_t;
+
 // ioctl commands
 enum {
     IOCTL_RESET, // Reset CDMA
