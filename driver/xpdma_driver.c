@@ -18,46 +18,49 @@ MODULE_DESCRIPTION("PCIe driver for Xilinx CDMA subsystem (XAPP1171), Linux");
 MODULE_AUTHOR("Strezhik Iurii");
 
 // Max CDMA buffer size
-#define MAX_BTT             0x007FFFFF  // 8 MBytes maximum for DMA Transfer */
-//#define BUF_SIZE            (4<<20)     // 4 MBytes
-#define BUF_SIZE            16*PAGE_SIZE   // 64 kBytes
+#define MAX_BTT             0x007FFFFF   // 8 MBytes maximum for DMA Transfer */
+//#define BUF_SIZE            (4<<20)     // 4 MBytes read/write buffer size
+#define BUF_SIZE            16*PAGE_SIZE // 4 MBytes read/write buffer size
+#define TRANSFER_SIZE       16*PAGE_SIZE // 64 kBytes transfer size for scatter gather
+#define DESCRIPTOR_SIZE     64           // 64-byte aligned Transfer Descriptor
 
-#define BRAM_OFFSET         0x00000000  // Translation BRAM offset
-#define PCIE_CTL_OFFSET     0x00008000  // AXI PCIe control offset
-#define CDMA_OFFSET         0x0000c000  // AXI CDMA LITE control offset
+#define BRAM_OFFSET         0x00000000   // Translation BRAM offset
+#define PCIE_CTL_OFFSET     0x00008000   // AXI PCIe control offset
+#define CDMA_OFFSET         0x0000c000   // AXI CDMA LITE control offset
 
 // AXI CDMA Register Offsets
-#define CDMA_CONTROL_OFFSET	0x00 // Control Register
-#define CDMA_STATUS_OFFSET	0x04 // Status Register
-#define CDMA_CDESC_OFFSET	0x08 // Current descriptor Register
-#define CDMA_TDESC_OFFSET	0x10 // Tail descriptor Register
-#define CDMA_SRCADDR_OFFSET	0x18 // Source Address Register
-#define CDMA_DSTADDR_OFFSET	0x20 // Dest Address Register
-#define CDMA_BTT_OFFSET		0x28 // Bytes to transfer Register
+#define CDMA_CONTROL_OFFSET	0x00         // Control Register
+#define CDMA_STATUS_OFFSET	0x04         // Status Register
+#define CDMA_CDESC_OFFSET	0x08         // Current descriptor Register
+#define CDMA_TDESC_OFFSET	0x10         // Tail descriptor Register
+#define CDMA_SRCADDR_OFFSET	0x18         // Source Address Register
+#define CDMA_DSTADDR_OFFSET	0x20         // Dest Address Register
+#define CDMA_BTT_OFFSET		0x28         // Bytes to transfer Register
 
-#define AXI_PCIE_DM_ADDR    0x80000000  // AXI:BAR1 Address
-#define AXI_PCIE_SG_ADDR    0x80800000  // AXI:BAR0 Address
-#define AXI_BRAM_ADDR       0x81000000  // AXI Translation BRAM Address
-#define AXI_DDR3_ADDR       0x00000000  // AXI DDR3 Address
+#define AXI_PCIE_DM_ADDR    0x80000000   // AXI:BAR1 Address
+#define AXI_PCIE_SG_ADDR    0x80800000   // AXI:BAR0 Address
+#define AXI_BRAM_ADDR       0x81000000   // AXI Translation BRAM Address
+#define AXI_DDR3_ADDR       0x00000000   // AXI DDR3 Address
 
-#define SG_COMPLETE_MASK    0xF0000000  // Scatter Gather Operation Complete status flag mask
-#define SG_DEC_ERR_MASK     0x40000000  // Scatter Gather Operation Decode Error flag mask
-#define SG_SLAVE_ERR_MASK   0x20000000  // Scatter Gather Operation Slave Error flag mask
-#define SG_INT_ERR_MASK     0x10000000  // Scatter Gather Operation Internal Error flag mask
+#define SG_COMPLETE_MASK    0xF0000000   // Scatter Gather Operation Complete status flag mask
+#define SG_DEC_ERR_MASK     0x40000000   // Scatter Gather Operation Decode Error flag mask
+#define SG_SLAVE_ERR_MASK   0x20000000   // Scatter Gather Operation Slave Error flag mask
+#define SG_INT_ERR_MASK     0x10000000   // Scatter Gather Operation Internal Error flag mask
 
-#define SG_OFFSET           0x40        // Scatter Gather next descriptor offset
-#define BRAM_STEP           0x8         // Translation Vector Length
-#define ADDR_BTT            0x00000008  // 64 bit address translation descriptor control length
+//#define SG_OFFSET           0x40         // Scatter Gather next descriptor offset
+#define BRAM_STEP           0x8          // Translation Vector Length
+#define ADDR_BTT            0x00000008   // 64 bit address translation descriptor control length
 
-#define CDMA_CR_SG_EN       0x00000008  // Scatter gather mode enable
-#define CDMA_CR_IDLE_MASK   0x00000002  // CDMA Idle mask
-#define CDMA_CR_RESET_MASK  0x00000004  // CDMA Reset mask
-#define AXIBAR2PCIEBAR_0U   0x208       // AXI:BAR0 Upper Address Translation (bits [63:32])
-#define AXIBAR2PCIEBAR_0L   0x20C       // AXI:BAR0 Lower Address Translation (bits [31:0])
-#define AXIBAR2PCIEBAR_1U   0x210       // AXI:BAR1 Upper Address Translation (bits [63:32])
-#define AXIBAR2PCIEBAR_1L   0x214       // AXI:BAR1 Lower Address Translation (bits [31:0])
+#define CDMA_CR_SG_EN       0x00000008   // Scatter gather mode enable
+#define CDMA_CR_IDLE_MASK   0x00000002   // CDMA Idle mask
+#define CDMA_CR_RESET_MASK  0x00000004   // CDMA Reset mask
+#define AXIBAR2PCIEBAR_0U   0x208        // AXI:BAR0 Upper Address Translation (bits [63:32])
+#define AXIBAR2PCIEBAR_0L   0x20C        // AXI:BAR0 Lower Address Translation (bits [31:0])
+#define AXIBAR2PCIEBAR_1U   0x210        // AXI:BAR1 Upper Address Translation (bits [63:32])
+#define AXIBAR2PCIEBAR_1L   0x214        // AXI:BAR1 Lower Address Translation (bits [31:0])
 
-#define CDMA_RESET_LOOP	1000000 // Reset timeout counter limit
+#define CDMA_RESET_LOOP	    1000000      // Reset timeout counter limit
+#define SG_TRANSFER_LOOP	40      // Scatter Gather Transfer timeout counter limit
 
 // Scatter Gather Transfer descriptor
 typedef struct {
@@ -69,13 +72,13 @@ typedef struct {
     u32 na3;	/* 0x14 */
     u32 control;	/* 0x18 */
     u32 status;	/* 0x1C */
-} __aligned(64) sg_desc_t;
+} __aligned(DESCRIPTOR_SIZE) sg_desc_t;
 
 // Scatter Gather descriptor chain
 typedef struct {
     sg_desc_t *desc;
-    sg_desc_t *headDesc;
-    sg_desc_t *tailDesc;
+    sg_desc_t *tail;
+    size_t length;
 } sg_chain_t;
 
 // Struct Used for send/receive data
@@ -102,11 +105,6 @@ sg_chain_t gDescChain;              // Address Translation Descriptors chain
 dma_addr_t gReadHWAddr;
 dma_addr_t gWriteHWAddr;
 dma_addr_t gDescChainHWAddr;
-
-//dma_addr_t dma_readBuffer; // TODO: TEST
-//dma_addr_t dma_writeBuffer; // TODO: TEST
-//dma_addr_t dma_descBuffer; // TODO: TEST
-
 
 // Prototypes
 static int xpdma_reset(void);
@@ -147,19 +145,9 @@ ssize_t xpdma_write (struct file *filp, const char *buf, size_t count, loff_t *f
     }
 
     //TODO: set DMA semaphore
-//    dma_addr = pci_map_single(gDev, gWriteBuffer, BUF_SIZE, PCI_DMA_TODEVICE);
-//    if ( 0 == dma_addr )  {
-//        printk("%s: xpdma_writeMem: Map error.\n", DEVICE_NAME);
-//        return (CRIT_ERR);
-//    }
 
-//    printk("%s: xpdma_writeMem: WriteBuf Virt Addr = %lX Phy Addr = %lX.\n",
-//           DEVICE_NAME, (size_t)gWriteBuffer, (size_t)dma_addr);
     printk("%s: xpdma_writeMem: WriteBuf Virt Addr = %lX Phy Addr = %lX.\n",
            DEVICE_NAME, (size_t)gWriteBuffer, (size_t)gWriteHWAddr);
-
-
-//    pci_unmap_single(gDev, dma_addr, BUF_SIZE, PCI_DMA_TODEVICE);
 
     //TODO: release DMA semaphore
 
@@ -170,8 +158,6 @@ ssize_t xpdma_write (struct file *filp, const char *buf, size_t count, loff_t *f
 
 ssize_t xpdma_read (struct file *filp, char *buf, size_t count, loff_t *f_pos)
 {
-//    dma_addr_t dma_addr;
-
     //TODO: set DMA semaphore
 //    dma_addr = pci_map_single(gDev, gReadBuffer, BUF_SIZE, PCI_DMA_FROMDEVICE);
 //    if ( 0 == dma_addr )  {
@@ -179,18 +165,10 @@ ssize_t xpdma_read (struct file *filp, char *buf, size_t count, loff_t *f_pos)
 //        return (CRIT_ERR);
 //    }
 
-//    printk("%s: xpdma_readMem: ReadBuf Virt Addr = %lX Phy Addr = %lX.\n",
-//           DEVICE_NAME, (size_t)gReadBuffer, (size_t)dma_addr);
     printk("%s: xpdma_readMem: ReadBuf Virt Addr = %lX Phy Addr = %lX.\n",
            DEVICE_NAME, (size_t)gReadBuffer, (size_t)gReadHWAddr);
 
-    // Unmap the DMA buffer so it is safe for normal access again.
-//    pci_unmap_single(gDev, dma_addr, BUF_SIZE, PCI_DMA_FROMDEVICE);
-
     //TODO: release DMA semaphore
-
-    // TODO: debug cycle
-//    memcpy((char *)gReadBuffer, gWriteBuffer, BUF_SIZE);
 
     // Now it is safe to copy the data to user space.
     if ( copy_to_user(buf, gReadBuffer, count) )  {
@@ -258,12 +236,14 @@ void xpdma_showInfo (void)
     printk(KERN_INFO"%s: INFORMATION\n", DEVICE_NAME);
     printk(KERN_INFO"%s: HOST REGIONS:\n", DEVICE_NAME);
     printk(KERN_INFO"%s: gBaseVirt: 0x%lX\n", DEVICE_NAME, (size_t) gBaseVirt);
-    printk(KERN_INFO"%s: gReadBuffer: 0x%lX\n", DEVICE_NAME, (size_t) gReadBuffer);
-    printk(KERN_INFO"%s: gWriteBuffer: 0x%lX\n", DEVICE_NAME, (size_t) gWriteBuffer);
+    printk(KERN_INFO"%s: gReadBuffer address: 0x%lX\n", DEVICE_NAME, (size_t) gReadBuffer);
+    printk(KERN_INFO"%s: gReadBuffer: %s\n", DEVICE_NAME, gReadBuffer);
+    printk(KERN_INFO"%s: gWriteBuffer address: 0x%lX\n", DEVICE_NAME, (size_t) gWriteBuffer);
+    printk(KERN_INFO"%s: gWriteBuffer: %s\n", DEVICE_NAME, gWriteBuffer);
     printk(KERN_INFO"%s: gDescChain:          0x%lX\n", DEVICE_NAME, (size_t) &gDescChain);
     printk(KERN_INFO"%s: gDescChain.desc:     0x%lX\n", DEVICE_NAME, (size_t) (gDescChain.desc));
-    printk(KERN_INFO"%s: gDescChain.headDesc: 0x%lX\n", DEVICE_NAME, (size_t) (gDescChain.headDesc));
-    printk(KERN_INFO"%s: gDescChain.tailDesc: 0x%lX\n", DEVICE_NAME, (size_t) (gDescChain.tailDesc));
+    printk(KERN_INFO"%s: gDescChain.tail: 0x%lX\n", DEVICE_NAME, (size_t) (gDescChain.tail));
+    printk(KERN_INFO"%s: gDescChain.length:   0x%08X\n", DEVICE_NAME, (u32) (gDescChain.length));
 
     printk(KERN_INFO"%s: REGISTERS:\n", DEVICE_NAME);
 
@@ -284,9 +264,7 @@ void xpdma_showInfo (void)
 ssize_t create_desc_chain(int direction, void *data, u32 size, u32 addr)
 {
     // length of desctriptors chain
-    /*int chainLength = ((size + BUF_SIZE - 1) / BUF_SIZE);
-    int count = 0;
-
+    u32 count = 0;
     u32 sgAddr = AXI_PCIE_SG_ADDR; // current descriptor address in chain
     u32 bramAddr = AXI_BRAM_ADDR ; // Translation BRAM Address
     u32 btt = 0;                   // current descriptor BTT
@@ -294,6 +272,11 @@ ssize_t create_desc_chain(int direction, void *data, u32 size, u32 addr)
     u32 srcAddr = 0;               // source address (SG_DM of DDR3)
     u32 destAddr = 0;              // destination address (SG_DM of DDR3)
 
+    gDescChain.length = (size + (u32)(TRANSFER_SIZE) - 1) / (u32)(TRANSFER_SIZE);
+    printk(KERN_INFO"%s: gDescChain.length = %d\n", DEVICE_NAME, gDescChain.length);
+
+
+    // TODO: future: add PCI_DMA_NONE as indicator of MEM 2 MEM transitions
     if (direction == PCI_DMA_FROMDEVICE) {
         srcAddr  = AXI_DDR3_ADDR + addr;
         destAddr = AXI_PCIE_DM_ADDR;
@@ -302,46 +285,48 @@ ssize_t create_desc_chain(int direction, void *data, u32 size, u32 addr)
         destAddr = AXI_DDR3_ADDR + addr;
     } else {
         printk(KERN_INFO"%s: Descriptors Chain create error: unknown direction\n", DEVICE_NAME);
-        return NULL;
-    }
-
-    gDescChain.desc = kmalloc(2 * sizeof(sg_desc_t) * chainLength, GFP_KERNEL);
-    if (gDescChain.desc == NULL) {
-        printk(KERN_INFO"%s: Descriptors Chain create error: memory allocation failed\n", DEVICE_NAME);
-        return NULL;
+        return (CRIT_ERR);
     }
 
     // fill descriptor chain
-    for (count = 0; count < chainLength; ++count) {
+    printk(KERN_INFO"%s: fill descriptor chain\n", DEVICE_NAME);
+    for (count = 0; count < gDescChain.length; ++count) {
         sg_desc_t *addrDesc = gDescChain.desc + 2 * count; // address translation descriptor
-        sg_desc_t *dataDesc = addrDesc + 1;           // target data transfer descriptor
-        btt = (unmappedSize > BUF_SIZE) ? BUF_SIZE : unmappedSize;
+        sg_desc_t *dataDesc = addrDesc + 1;                // target data transfer descriptor
+        btt = (unmappedSize > TRANSFER_SIZE) ? TRANSFER_SIZE : unmappedSize;
+
+//        printk(KERN_INFO"%s: fill address translation descriptor\n", DEVICE_NAME);
 
         // fill address translation descriptor
-        addrDesc->nextDesc = sgAddr + SG_OFFSET;
-        addrDesc->srcAddr  = bramAddr;
-        addrDesc->destAddr = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
+        addrDesc->nextDesc  = sgAddr + DESCRIPTOR_SIZE;
+        addrDesc->srcAddr   = bramAddr;
+        addrDesc->destAddr  = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
         addrDesc->control   = ADDR_BTT;
-        addrDesc->status    = 0x0;
-        sgAddr += SG_OFFSET;
+        addrDesc->status    = 0x00000000;
+        sgAddr += DESCRIPTOR_SIZE;
+
+//        printk(KERN_INFO"%s: fill address data transfer descriptor\n", DEVICE_NAME);
 
         // fill target data transfer descriptor
-        dataDesc->nextDesc = sgAddr + SG_OFFSET;
-        dataDesc->srcAddr  = srcAddr;
-        dataDesc->destAddr = destAddr;
+        dataDesc->nextDesc  = sgAddr + DESCRIPTOR_SIZE;
+        dataDesc->srcAddr   = srcAddr;
+        dataDesc->destAddr  = destAddr;
         dataDesc->control   = btt;
-        dataDesc->status    = 0x0;
-        sgAddr += SG_OFFSET;
+        dataDesc->status    = 0x00000000;
+        sgAddr += DESCRIPTOR_SIZE;
+
+//        printk(KERN_INFO"%s: update counters\n", DEVICE_NAME);
 
         bramAddr += BRAM_STEP;
         unmappedSize -= btt;
+        srcAddr += btt;
+        destAddr += btt;
     }
 
-    gDescChain.desc[2*chainLength - 1].nextDesc = AXI_PCIE_SG_ADDR; // tail descriptor pointed to head of chain
-    gDescChain.headDesc = gDescChain.desc;
-    gDescChain.tailDesc = gDescChain.desc + (2 * chainLength - 1);*/
+    gDescChain.desc[2*gDescChain.length - 1].nextDesc = AXI_PCIE_SG_ADDR; // tail descriptor pointed to chain head
+    gDescChain.tail = gDescChain.desc + (2*gDescChain.length - 1);
 
-    int chainLength = 2; // 1 write and 1 read
+   /* int chainLength = 2; // 1 write and 1 read
     sg_desc_t *descriptor = NULL;
 
     u32 sgAddr = AXI_PCIE_SG_ADDR; // current descriptor address in chain
@@ -382,7 +367,7 @@ ssize_t create_desc_chain(int direction, void *data, u32 size, u32 addr)
 
         // Descriptor 2
         descriptor->nextDesc = sgAddr + SG_OFFSET;
-        descriptor->srcAddr = AXI_BRAM_ADDR + BRAM_OFFSET /*+ BRAM_STEP*/;
+        descriptor->srcAddr = AXI_BRAM_ADDR + BRAM_OFFSET;
         descriptor->destAddr = AXI_BRAM_ADDR + PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_1U;
         descriptor->control = ADDR_BTT;
         descriptor->status = 0x00000000;
@@ -435,99 +420,8 @@ ssize_t create_desc_chain(int direction, void *data, u32 size, u32 addr)
     }
 
     gDescChain.desc[2*chainLength - 1].nextDesc = AXI_PCIE_SG_ADDR; // tail descriptor pointed to head of chain
-    gDescChain.headDesc = gDescChain.desc;
-    gDescChain.tailDesc = gDescChain.desc + (2 * chainLength - 1);
+    gDescChain.tail = gDescChain.desc + (2 * chainLength - 1);*/
 
-
-   /* sgAddr = AXI_BRAM_ADDR + 0x40;
-    sgAddr_ = BRAM_OFFSET + 0x40;
-
-    if (direction == PCI_DMA_TODEVICE) {
-
-        // Descriptor 0
-        xpdma_writeReg(sgAddr_ + 0x00, sgAddr + SG_OFFSET);
-        xpdma_writeReg(sgAddr_ + 0x08, 0x81000000);
-        xpdma_writeReg(sgAddr_ + 0x10, 0x81008210);
-        xpdma_writeReg(sgAddr_ + 0x18, 0x00000008);
-        xpdma_writeReg(sgAddr_ + 0x1c, 0x00000000);
-        sgAddr += SG_OFFSET;
-        sgAddr_ += SG_OFFSET;
-        descriptor++;        // target data transfer descriptor
-
-        // Descriptor 1
-        xpdma_writeReg(sgAddr_ + 0x00, sgAddr + SG_OFFSET);
-        xpdma_writeReg(sgAddr_ + 0x08, 0x80000000);
-        xpdma_writeReg(sgAddr_ + 0x10, 0x00000000);
-        xpdma_writeReg(sgAddr_ + 0x18, 0x00000008);
-        xpdma_writeReg(sgAddr_ + 0x1c, 0x00000000);
-        sgAddr += SG_OFFSET;
-        sgAddr_ += SG_OFFSET;
-        descriptor++;        // target data transfer descriptor
-
-        // Descriptor 2
-        xpdma_writeReg(sgAddr_ + 0x00, sgAddr + SG_OFFSET);
-        xpdma_writeReg(sgAddr_ + 0x08, 0x81000000);
-        xpdma_writeReg(sgAddr_ + 0x10, 0x81008210);
-        xpdma_writeReg(sgAddr_ + 0x18, 0x00000008);
-        xpdma_writeReg(sgAddr_ + 0x1c, 0x00000000);
-        sgAddr += SG_OFFSET;
-        sgAddr_ += SG_OFFSET;
-        descriptor++;        // target data transfer descriptor
-
-        // Descriptor 3
-        xpdma_writeReg(sgAddr_ + 0x00, AXI_BRAM_ADDR);
-        xpdma_writeReg(sgAddr_ + 0x08, 0x80000000);
-        xpdma_writeReg(sgAddr_ + 0x10, 0x00000008);
-        xpdma_writeReg(sgAddr_ + 0x18, 0x00000008);
-        xpdma_writeReg(sgAddr_ + 0x1c, 0x00000000);
-        sgAddr += SG_OFFSET;
-        sgAddr_ += SG_OFFSET;
-
-    } else {
-            // Descriptor 0
-            xpdma_writeReg(sgAddr_ + 0x00, sgAddr + SG_OFFSET);
-            xpdma_writeReg(sgAddr_ + 0x08, 0x81000008);
-            xpdma_writeReg(sgAddr_ + 0x10, 0x81008210);
-            xpdma_writeReg(sgAddr_ + 0x18, 0x00000008);
-            xpdma_writeReg(sgAddr_ + 0x1c, 0x00000000);
-            sgAddr += SG_OFFSET;
-            sgAddr_ += SG_OFFSET;
-            descriptor++;        // target data transfer descriptor
-
-            // Descriptor 1
-            xpdma_writeReg(sgAddr_ + 0x00, sgAddr + SG_OFFSET);
-            xpdma_writeReg(sgAddr_ + 0x08, 0x00000000);
-            xpdma_writeReg(sgAddr_ + 0x10, 0x80000000);
-            xpdma_writeReg(sgAddr_ + 0x18, 0x00000008);
-            xpdma_writeReg(sgAddr_ + 0x1c, 0x00000000);
-            sgAddr += SG_OFFSET;
-            sgAddr_ += SG_OFFSET;
-            descriptor++;        // target data transfer descriptor
-
-            // Descriptor 2
-            xpdma_writeReg(sgAddr_ + 0x00, sgAddr + SG_OFFSET);
-            xpdma_writeReg(sgAddr_ + 0x08, 0x81000008);
-            xpdma_writeReg(sgAddr_ + 0x10, 0x81008210);
-            xpdma_writeReg(sgAddr_ + 0x18, 0x00000008);
-            xpdma_writeReg(sgAddr_ + 0x1c, 0x00000000);
-            sgAddr += SG_OFFSET;
-            sgAddr_ += SG_OFFSET;
-            descriptor++;        // target data transfer descriptor
-
-            // Descriptor 3
-            xpdma_writeReg(sgAddr_ + 0x00, AXI_BRAM_ADDR);
-            xpdma_writeReg(sgAddr_ + 0x08, 0x00000008);
-            xpdma_writeReg(sgAddr_ + 0x10, 0x80000000);
-            xpdma_writeReg(sgAddr_ + 0x18, 0x00000008);
-            xpdma_writeReg(sgAddr_ + 0x1c, 0x00000000);
-            sgAddr += SG_OFFSET;
-            sgAddr_ += SG_OFFSET;
-
-    }
-
-    gDescChain.headDesc = gDescChain.desc;
-    gDescChain.tailDesc = gDescChain.desc + (2 * chainLength - 1);
-*/
     return (SUCCESS);
 }
 
@@ -614,141 +508,109 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
 {
     u32 status = 0;
     size_t pntr = 0;
-    u32 lowPntr = 0;
-    u32 hignPntr = 0;
     size_t delayTime = 0; // TODO: temporary variable
+    u32 countBuf = count;
+    size_t bramOffset = 0;
 
-    if (xpdma_reset()) {
+    /*if (xpdma_reset()) {
         printk(KERN_INFO"%s: RESET timeout\n", DEVICE_NAME);
         return (CRIT_ERR);
-    }
+    }*/
 
     if (!xpdma_isIdle()){
         printk(KERN_INFO"%s: CDMA is not idle\n", DEVICE_NAME);
         return (SUCCESS);
     }
 
-    printk(KERN_INFO"%s: sizeof(dam_adde_t) = %lu\n", DEVICE_NAME, sizeof(dma_addr_t));
-
     // 1. Set DMA to Scatter Gather Mode
     printk(KERN_INFO"%s: 1. Set DMA to Scatter Gather Mode\n", DEVICE_NAME);
-    xpdma_writeReg (CDMA_OFFSET + CDMA_CONTROL_OFFSET,
+    /*xpdma_writeReg (CDMA_OFFSET + CDMA_CONTROL_OFFSET,
                     xpdma_readReg (CDMA_OFFSET + CDMA_CONTROL_OFFSET) & ~CDMA_CR_SG_EN);
     xpdma_writeReg (CDMA_OFFSET + CDMA_CONTROL_OFFSET,
-                    xpdma_readReg (CDMA_OFFSET + CDMA_CONTROL_OFFSET) | CDMA_CR_SG_EN);
-//    xpdma_writeReg (CDMA_OFFSET + CDMA_CONTROL_OFFSET, CDMA_CR_SG_EN);
+                    xpdma_readReg (CDMA_OFFSET + CDMA_CONTROL_OFFSET) | CDMA_CR_SG_EN);*/
+    xpdma_writeReg (CDMA_OFFSET + CDMA_CONTROL_OFFSET, CDMA_CR_SG_EN);
 
     // 2. Create Descriptors chain
     printk(KERN_INFO"%s: 2. Create Descriptors chain\n", DEVICE_NAME);
     create_desc_chain(direction, data, count, addr);
 
     // 3. Update PCIe Translation vector
-    pntr =  (size_t) (gDescChainHWAddr) + 0x000000000;
-//    pntr =  (size_t) (AXI_BRAM_ADDR + 0x40);
+    pntr =  (size_t) (gDescChainHWAddr);
     printk(KERN_INFO"%s: 3. Update PCIe Translation vector\n", DEVICE_NAME);
     printk(KERN_INFO"%s: gDescChain.desc 0x%016lX\n", DEVICE_NAME, pntr);
-    lowPntr =  (pntr >> 0) & 0xFFFFFFFF;
-    hignPntr = (pntr >> 32) & 0xFFFFFFFF;
-    xpdma_writeReg ((PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_0L), lowPntr);
-    xpdma_writeReg ((PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_0U), hignPntr);
+    xpdma_writeReg ((PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_0L), (pntr >> 0)  & 0xFFFFFFFF); // Lower 32 bit
+    xpdma_writeReg ((PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_0U), (pntr >> 32) & 0xFFFFFFFF); // Upper 32 bit
 
     // 4. Write appropriate Translation Vectors
     // TODO: only test! Change to real address values in pntr
+    printk(KERN_INFO"%s: 4. Write Translation Vectors to BRAM\n", DEVICE_NAME);
+    if (PCI_DMA_FROMDEVICE == direction) {
+        pntr = (size_t)(gReadHWAddr);
+    } else if (PCI_DMA_TODEVICE == direction) {
+        pntr = (size_t)(gWriteHWAddr);
+    } else {
+        printk(KERN_INFO"%s: Write Translation Vectors to BRAM error: unknown direction\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
 
-//    pntr =  (size_t) (dma_writeBuffer) | 0x00000000;
-    pntr =  (size_t) (gWriteHWAddr);
-//    pntr =  (size_t) (AXI_BRAM_ADDR + 0x540);
-    printk(KERN_INFO"%s: 4. Write appropriate Translation Vectors\n", DEVICE_NAME);
-    printk(KERN_INFO"%s: gWriteBuffer 0x%016lX\n", DEVICE_NAME, pntr);
-    lowPntr =  (pntr >> 0) & 0xFFFFFFFF;
-    hignPntr = (pntr >> 32) & 0xFFFFFFFF;
-//    lowPntr =  (pntr >> 0) & 0xFFFFFFFF;
-//    hignPntr = lowPntr;
-    xpdma_writeReg ((BRAM_OFFSET + 0 + 4), lowPntr);
-    xpdma_writeReg ((BRAM_OFFSET + 0 + 0), hignPntr);
+    countBuf = gDescChain.length;
+    while (countBuf) {
+        printk(KERN_INFO"%s: pntr 0x%016lX\n", DEVICE_NAME, pntr);
+        printk(KERN_INFO"%s: bramOffset 0x%016lX\n", DEVICE_NAME, bramOffset);
+        printk(KERN_INFO"%s: countBuf 0x%016lX\n", DEVICE_NAME, countBuf);
+        xpdma_writeReg ((BRAM_OFFSET + bramOffset + 4), (pntr >> 0 ) & 0xFFFFFFFF); // Lower 32 bit
+        xpdma_writeReg ((BRAM_OFFSET + bramOffset + 0), (pntr >> 32) & 0xFFFFFFFF); // Upper 32 bit
 
-//    pntr =  (size_t) (dma_readBuffer) | 0x00000000;
-    pntr =  (size_t) (gReadHWAddr);
-    printk(KERN_INFO"%s: gReadBuffer 0x%016lX\n", DEVICE_NAME, pntr);
-    lowPntr =  (pntr >> 0) & 0xFFFFFFFF;
-    hignPntr = (pntr >> 32) & 0xFFFFFFFF;
-
-//    lowPntr =  (pntr >> 0) & 0xFFFFFFFF;
-    xpdma_writeReg ((BRAM_OFFSET + 8 + 4), lowPntr);
-    xpdma_writeReg ((BRAM_OFFSET + 8 + 0), hignPntr);
-
-//    show_descriptors();
+        pntr += TRANSFER_SIZE;
+        bramOffset += BRAM_STEP;
+        countBuf--;
+    }
 
     // 5. Write a valid pointer to DMA CURDESC_PNTR
     printk(KERN_INFO"%s: 5. Write a valid pointer to DMA CURDESC_PNTR\n", DEVICE_NAME);
-    xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)(0x80800000));
-//    xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)((size_t)gDescChainHWAddr));
-    //xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)(AXI_PCIE_SG_ADDR + 0x00));
-//    xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (u32)(AXI_BRAM_ADDR + 0x40 + 0x00));
+    xpdma_writeReg ((CDMA_OFFSET + CDMA_CDESC_OFFSET), (AXI_PCIE_SG_ADDR));
 
     // 6. Write a valid pointer to DMA TAILDESC_PNTR
     printk(KERN_INFO"%s: 6. Write a valid pointer to DMA TAILDESC_PNTR\n", DEVICE_NAME);
-    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)(0x808000c0));
-//    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)((size_t)(gDescChainHWAddr + 3*64)));
-//    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)(AXI_PCIE_SG_ADDR + 0xC0));
-//    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (u32)(AXI_BRAM_ADDR + 0x40 + 0xC0));
+    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (AXI_PCIE_SG_ADDR) + ((gDescChain.length - 1) * (DESCRIPTOR_SIZE)));
 
     // wait for Scatter Gather operation...
     printk(KERN_INFO"%s: Scatter Gather must be started!\n", DEVICE_NAME);
-    #define TIMEOUT 2
-    while (delayTime < TIMEOUT) {
-        delayTime++;
-        // TODO: must be less
-        mdelay(500);
 
-        status = gDescChain.tailDesc->status;
-//        status = xpdma_readReg(BRAM_OFFSET + 0x40 + 0x40*(4-1) + 0x1c) & SG_COMPLETE_MASK;
+    delayTime = SG_TRANSFER_LOOP;
+    while (delayTime) {
+        delayTime--;
+        mdelay(50);// TODO: can it be less?
 
-        if (status) {
-            printk(KERN_INFO"%s: Unmap buffers\n", DEVICE_NAME);
-//            dma_unmap_single(&gDev->dev, dma_writeBuffer, BUF_SIZE, PCI_DMA_TODEVICE);
-//            dma_unmap_single(&gDev->dev, dma_readBuffer, BUF_SIZE, PCI_DMA_FROMDEVICE);
-//            dma_unmap_single(&gDev->dev, dma_descBuffer, BUF_SIZE, PCI_DMA_TODEVICE);
-//            pci_unmap_single(gDev, wpage, BUF_SIZE, PCI_DMA_TODEVICE);
-//            pci_unmap_single(gDev, rpage, BUF_SIZE, PCI_DMA_FROMDEVICE);
-        }
+        status = gDescChain.tail->status;
 
         printk(KERN_INFO
         "%s: Scatter Gather Operation: status 0x%08X\n", DEVICE_NAME, status);
 
-        // Release Descriptors chain
-        if (status) {
-            show_descriptors();
-//            if (NULL != gDescChain.desc)
-//                kfree(gDescChain.desc);
-//            pci_free_consistent(gDev, 2 * sizeof(sg_desc_t) * 2, gDescChain.desc, &gDescChainHWAddr);
-        }
-
         if (status & SG_DEC_ERR_MASK) {
             printk(KERN_INFO
             "%s: Scatter Gather Operation: Decode Error\n", DEVICE_NAME);
+            show_descriptors();
             return (CRIT_ERR);
         }
 
         if (status & SG_SLAVE_ERR_MASK) {
             printk(KERN_INFO
             "%s: Scatter Gather Operation: Slave Error\n", DEVICE_NAME);
+            show_descriptors();
             return (CRIT_ERR);
         }
 
         if (status & SG_INT_ERR_MASK) {
             printk(KERN_INFO
             "%s: Scatter Gather Operation: Internal Error\n", DEVICE_NAME);
+            show_descriptors();
             return (CRIT_ERR);
         }
 
         if (status & SG_COMPLETE_MASK) {
             printk(KERN_INFO
             "%s: Scatter Gather Operation: Completed successfully\n", DEVICE_NAME);
-            printk(KERN_INFO
-            "%s: gReadBuffer: %s\n", DEVICE_NAME, gReadBuffer);
-            printk(KERN_INFO
-            "%s: gWriteBuffer: %s\n", DEVICE_NAME, gWriteBuffer);
             return (SUCCESS);
         }
     }
@@ -758,21 +620,7 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
     "%s: gWriteBuffer: %s\n", DEVICE_NAME, gWriteBuffer);
 
     printk(KERN_INFO"%s: Scatter Gather Operation error: Timeout Error\n", DEVICE_NAME);
-
     show_descriptors();
-
-   /* pci_unmap_single(gDev, dma_writeBuffer, BUF_SIZE, PCI_DMA_TODEVICE);
-    pci_unmap_single(gDev, dma_readBuffer, BUF_SIZE, PCI_DMA_FROMDEVICE);
-    pci_unmap_single(gDev, dma_descBuffer, BUF_SIZE, PCI_DMA_TODEVICE);*/
-
-//    pci_unmap_single(gDev, dma_addr, BUF_SIZE, PCI_DMA_FROMDEVICE);
-
-//    if (NULL != gDescChain.desc)
-//        kfree(gDescChain.desc);
-//    pci_free_consistent(gDev, 2 * sizeof(sg_desc_t) * 2, gDescChain.desc, &gDescChainHWAddr);
-
-    printk(KERN_INFO"%s: RETURN...\n", DEVICE_NAME);
-
     return (CRIT_ERR);
 }
 
@@ -783,7 +631,8 @@ static int sg_block(int direction, void *data, size_t count, u32 addr)
     u32 curAddr = addr;
     u32 btt = BUF_SIZE;
 
-    while (unsended > 0) {
+    // divide block
+    while (unsended) {
         btt = (unsended < BUF_SIZE) ? unsended : BUF_SIZE;
         printk(KERN_INFO"%s: SG Block: BTT=%u\tunsended=%lu \n", DEVICE_NAME, btt, unsended);
         sg_operation(direction, curData, btt, curAddr);
@@ -813,7 +662,7 @@ int xpdma_release(struct inode *inode, struct file *filp)
     return (SUCCESS);
 }
 
-// IO access
+// IO access (with byte addressing)
 static inline u32 xpdma_readReg (u32 reg)
 {
 //    printk(KERN_INFO"%s: xpdma_readReg: address:0x%08X\t\n", DEVICE_NAME, reg);
@@ -835,15 +684,15 @@ static int xpdma_init (void)
         return (CRIT_ERR);
     }
 
+    // Set Bus Master Enable (BME) bit
+    pci_set_master(gDev);
+
     // Get Base Address of BAR0 registers
     gBaseHdwr = pci_resource_start(gDev, 0);
     if (0 > gBaseHdwr) {
         printk(KERN_WARNING"%s: Init: Base Address not set.\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-
-    pci_set_master(gDev);
-
     printk(KERN_INFO"%s: Init: Base hw val %X\n", DEVICE_NAME, (unsigned int) gBaseHdwr);
 
     // Get the Base Address Length
@@ -882,38 +731,29 @@ static int xpdma_init (void)
     }
     pci_set_consistent_dma_mask(gDev, 0x7FFFFFFFFFFFFFFF);
 
-    //gReadBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
     gReadBuffer = dma_alloc_coherent( &gDev->dev, BUF_SIZE, &gReadHWAddr, GFP_KERNEL );
-//    gReadBuffer = pci_alloc_consistent(gDev, BUF_SIZE, &gReadHWAddr);
     if (NULL == gReadBuffer) {
         printk(KERN_CRIT"%s: Init: Unable to allocate gReadBuffer\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-    printk(KERN_CRIT"%s: Init: Read buffer successfully allocated: 0x%016lX\n", DEVICE_NAME, (size_t) gReadBuffer);
-    printk(KERN_CRIT"%s: Init: Read buffer dma: 0x%016lX\n", DEVICE_NAME, (size_t) gReadHWAddr);
-    printk(KERN_CRIT"%s: Init: Read buffer delta: 0x%016lX\n", DEVICE_NAME, (size_t) (gReadBuffer - gReadHWAddr));
+    printk(KERN_CRIT"%s: Init: Read buffer allocated: 0x%016lX, Phy:0x%016lX\n",
+            DEVICE_NAME, (size_t) gReadBuffer, (size_t) gReadHWAddr);
 
     gWriteBuffer = dma_alloc_coherent( &gDev->dev, BUF_SIZE, &gWriteHWAddr, GFP_KERNEL );
-//    gWriteBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
-//    gWriteBuffer = pci_alloc_consistent(gDev, BUF_SIZE, &gWriteHWAddr);
     if (NULL == gWriteBuffer) {
         printk(KERN_CRIT"%s: Init: Unable to allocate gWriteBuffer\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-    printk(KERN_CRIT"%s: Init: Write buffer successfully allocated: 0x%016lX\n", DEVICE_NAME, (size_t) gWriteBuffer);
-    printk(KERN_CRIT"%s: Init: Write buffer dma: 0x%016lX\n", DEVICE_NAME, (size_t) gWriteHWAddr);
-    printk(KERN_CRIT"%s: Init: Write buffer delta: 0x%016lX\n", DEVICE_NAME, (size_t) (gWriteBuffer - gWriteHWAddr));
+    printk(KERN_CRIT"%s: Init: Write buffer allocated: 0x%016lX, Phy:0x%016lX\n",
+            DEVICE_NAME, (size_t) gWriteBuffer, (size_t) gWriteHWAddr);
 
     gDescChain.desc = dma_alloc_coherent( &gDev->dev, BUF_SIZE, &gDescChainHWAddr, GFP_KERNEL );
-//    gWriteBuffer = kmalloc(BUF_SIZE, GFP_KERNEL);
-//    gWriteBuffer = pci_alloc_consistent(gDev, BUF_SIZE, &gWriteHWAddr);
     if (NULL == gDescChain.desc) {
         printk(KERN_CRIT"%s: Init: Unable to allocate gDescChain.desc\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-    printk(KERN_CRIT"%s: Init: Descriptor chain buffer successfully allocated: 0x%016lX\n", DEVICE_NAME, (size_t) gDescChain.desc);
-    printk(KERN_CRIT"%s: Init: Descriptor chain dma: 0x%016lX\n", DEVICE_NAME, (size_t) gDescChainHWAddr);
-    printk(KERN_CRIT"%s: Init: Descriptor chain delta: 0x%016lX\n", DEVICE_NAME, (size_t) (gDescChain.desc) -  (size_t)gDescChainHWAddr);
+    printk(KERN_CRIT"%s: Init: Descriptor chain buffer allocated: 0x%016lX, Phy:0x%016lX\n",
+            DEVICE_NAME, (size_t) (gDescChain.desc), (size_t) gDescChainHWAddr);
 
     // Register driver as a character device.
     if (0 > register_chrdev(gDrvrMajor, DEVICE_NAME, &xpdma_intf)) {
@@ -924,6 +764,12 @@ static int xpdma_init (void)
 
     gStatFlags = gStatFlags | HAVE_KERNEL_REG;
     printk(KERN_INFO"%s: driver is loaded\n", DEVICE_NAME);
+
+    // try to reset CDMA
+    if (xpdma_reset()) {
+        printk(KERN_INFO"%s: RESET timeout\n", DEVICE_NAME);
+        return (CRIT_ERR);
+    }
 
     return (SUCCESS);
 }
@@ -936,41 +782,25 @@ static void xpdma_exit (void)
         (void) release_mem_region(gBaseHdwr, gBaseLen);
     }
 
-    printk(KERN_INFO"%s: erase gReadBuffer\n", DEVICE_NAME);
-    // Free Write and Read buffers allocated to use
-    if (NULL != gReadBuffer) {
-//        printk(KERN_INFO"%s: pci free\n", DEVICE_NAME);
-//        pci_free_consistent(gDev, BUF_SIZE, gReadBuffer, gReadHWAddr);
-//        printk(KERN_INFO"%s: kfree\n", DEVICE_NAME);
-//        (void) kfree(gReadBuffer);
+    printk(KERN_INFO"%s: xpdma_exit: erase gReadBuffer\n", DEVICE_NAME);
+    // Free Write, Read and Descriptor buffers allocated to use
+    if (NULL != gReadBuffer)
         dma_free_coherent( &gDev->dev, BUF_SIZE, gReadBuffer, gReadHWAddr);
-    }
 
-    printk(KERN_INFO"%s: erase gWriteBuffer\n", DEVICE_NAME);
-    if (NULL != gWriteBuffer) {
-//        printk(KERN_INFO"%s: pci free\n", DEVICE_NAME);
-//        pci_free_consistent(gDev, BUF_SIZE, gWriteBuffer, gWriteHWAddr);
-//        printk(KERN_INFO"%s: kfree\n", DEVICE_NAME);
-//        (void) kfree(gWriteBuffer);
+    printk(KERN_INFO"%s: xpdma_exit: erase gWriteBuffer\n", DEVICE_NAME);
+    if (NULL != gWriteBuffer)
         dma_free_coherent( &gDev->dev, BUF_SIZE, gWriteBuffer, gWriteHWAddr);
-    }
 
-    printk(KERN_INFO"%s: erase gDescChain.desc\n", DEVICE_NAME);
-    if (NULL != gWriteBuffer) {
-//        printk(KERN_INFO"%s: pci free\n", DEVICE_NAME);
-//        pci_free_consistent(gDev, BUF_SIZE, gWriteBuffer, gWriteHWAddr);
-//        printk(KERN_INFO"%s: kfree\n", DEVICE_NAME);
-//        (void) kfree(gWriteBuffer);
+    printk(KERN_INFO"%s: xpdma_exit: erase gDescChain.desc\n", DEVICE_NAME);
+    if (NULL != gWriteBuffer)
         dma_free_coherent( &gDev->dev, BUF_SIZE, gDescChain.desc, gDescChainHWAddr);
-    }
-
 
     gReadBuffer = NULL;
     gWriteBuffer = NULL;
     gDescChain.desc = NULL;
 
-    printk(KERN_INFO"%s: unmap gBaseVirt\n", DEVICE_NAME);
-    //  Free up memory pointed to by virtual address
+    // Unmap virtual device address
+    printk(KERN_INFO"%s: xpdma_exit: unmap gBaseVirt\n", DEVICE_NAME);
     if (gBaseVirt != NULL)
         iounmap(gBaseVirt);
 
