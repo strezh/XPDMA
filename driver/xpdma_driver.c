@@ -261,7 +261,7 @@ void xpdma_showInfo (void)
         printk(KERN_INFO"%s: 0x%08X: 0x%08X\n", DEVICE_NAME, CDMA_OFFSET + c, xpdma_readReg(CDMA_OFFSET + c));
 }
 
-ssize_t create_desc_chain(int direction, void *data, u32 size, u32 addr)
+ssize_t create_desc_chain(int direction, u32 size, u32 addr)
 {
     // length of desctriptors chain
     u32 count = 0;
@@ -273,8 +273,7 @@ ssize_t create_desc_chain(int direction, void *data, u32 size, u32 addr)
     u32 destAddr = 0;              // destination address (SG_DM of DDR3)
 
     gDescChain.length = (size + (u32)(TRANSFER_SIZE) - 1) / (u32)(TRANSFER_SIZE);
-    printk(KERN_INFO"%s: gDescChain.length = %d\n", DEVICE_NAME, gDescChain.length);
-
+    printk(KERN_INFO"%s: gDescChain.length = %lu\n", DEVICE_NAME, gDescChain.length);
 
     // TODO: future: add PCI_DMA_NONE as indicator of MEM 2 MEM transitions
     if (direction == PCI_DMA_FROMDEVICE) {
@@ -504,7 +503,7 @@ static int xpdma_isIdle(void)
            CDMA_CR_IDLE_MASK;
 }
 
-static int sg_operation(int direction, void *data, size_t count, u32 addr)
+static int sg_operation(int direction, size_t count, u32 addr)
 {
     u32 status = 0;
     size_t pntr = 0;
@@ -532,7 +531,7 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
 
     // 2. Create Descriptors chain
     printk(KERN_INFO"%s: 2. Create Descriptors chain\n", DEVICE_NAME);
-    create_desc_chain(direction, data, count, addr);
+    create_desc_chain(direction, count, addr);
 
     // 3. Update PCIe Translation vector
     pntr =  (size_t) (gDescChainHWAddr);
@@ -542,7 +541,6 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
     xpdma_writeReg ((PCIE_CTL_OFFSET + AXIBAR2PCIEBAR_0U), (pntr >> 32) & 0xFFFFFFFF); // Upper 32 bit
 
     // 4. Write appropriate Translation Vectors
-    // TODO: only test! Change to real address values in pntr
     printk(KERN_INFO"%s: 4. Write Translation Vectors to BRAM\n", DEVICE_NAME);
     if (PCI_DMA_FROMDEVICE == direction) {
         pntr = (size_t)(gReadHWAddr);
@@ -557,7 +555,7 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
     while (countBuf) {
         printk(KERN_INFO"%s: pntr 0x%016lX\n", DEVICE_NAME, pntr);
         printk(KERN_INFO"%s: bramOffset 0x%016lX\n", DEVICE_NAME, bramOffset);
-        printk(KERN_INFO"%s: countBuf 0x%016lX\n", DEVICE_NAME, countBuf);
+        printk(KERN_INFO"%s: countBuf 0x%08X\n", DEVICE_NAME, countBuf);
         xpdma_writeReg ((BRAM_OFFSET + bramOffset + 4), (pntr >> 0 ) & 0xFFFFFFFF); // Lower 32 bit
         xpdma_writeReg ((BRAM_OFFSET + bramOffset + 0), (pntr >> 32) & 0xFFFFFFFF); // Upper 32 bit
 
@@ -572,7 +570,7 @@ static int sg_operation(int direction, void *data, size_t count, u32 addr)
 
     // 6. Write a valid pointer to DMA TAILDESC_PNTR
     printk(KERN_INFO"%s: 6. Write a valid pointer to DMA TAILDESC_PNTR\n", DEVICE_NAME);
-    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (AXI_PCIE_SG_ADDR) + ((gDescChain.length - 1) * (DESCRIPTOR_SIZE)));
+    xpdma_writeReg ((CDMA_OFFSET + CDMA_TDESC_OFFSET), (AXI_PCIE_SG_ADDR) + ((2*gDescChain.length - 1) * (DESCRIPTOR_SIZE)));
 
     // wait for Scatter Gather operation...
     printk(KERN_INFO"%s: Scatter Gather must be started!\n", DEVICE_NAME);
@@ -635,7 +633,25 @@ static int sg_block(int direction, void *data, size_t count, u32 addr)
     while (unsended) {
         btt = (unsended < BUF_SIZE) ? unsended : BUF_SIZE;
         printk(KERN_INFO"%s: SG Block: BTT=%u\tunsended=%lu \n", DEVICE_NAME, btt, unsended);
-        sg_operation(direction, curData, btt, curAddr);
+
+        // TODO: remove this multiple checks
+        if (PCI_DMA_TODEVICE == direction) {
+            if ( copy_from_user(gWriteBuffer, curData, btt) )  {
+                printk("%s: sg_block: Failed copy from user.\n", DEVICE_NAME);
+                return (CRIT_ERR);
+            }
+        }
+
+        sg_operation(direction, btt, curAddr);
+
+        // TODO: remove this multiple checks
+        if (PCI_DMA_FROMDEVICE == direction) {
+            if ( copy_to_user(curData, gReadBuffer, btt) )  {
+                printk("%s: sg_block: Failed copy to user.\n", DEVICE_NAME);
+                return (CRIT_ERR);
+            }
+        }
+
         curData += BUF_SIZE;
         curAddr += BUF_SIZE;
         unsended -= btt;
