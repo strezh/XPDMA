@@ -110,13 +110,13 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
 
   # Create instance: axi_cdma_1, and set properties
   set axi_cdma_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_cdma:4.1 axi_cdma_1 ]
-  set_property -dict [list CONFIG.C_M_AXI_DATA_WIDTH {64} CONFIG.C_M_AXI_MAX_BURST_LEN {64}] $axi_cdma_1
+  set_property -dict [list CONFIG.C_M_AXI_DATA_WIDTH {128} CONFIG.C_M_AXI_MAX_BURST_LEN {128}] $axi_cdma_1
 
   # Create instance: axi_pcie_1, and set properties
   set axi_pcie_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_pcie:2.5 axi_pcie_1 ]
   set_property -dict [list CONFIG.XLNX_REF_BOARD {KC705_REVC}      \
                            CONFIG.PCIE_CAP_SLOT_IMPLEMENTED {true} \
-                           CONFIG.NO_OF_LANES {X4}                 \
+                           CONFIG.NO_OF_LANES {X8}                 \
                            CONFIG.DEVICE_ID {0x7024}               \
                            CONFIG.BAR_64BIT {true}                 \
                            CONFIG.BAR0_ENABLED {true}              \
@@ -133,7 +133,7 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
 
   # Create instance: translation_bram, and set properties
   set translation_bram [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.0 translation_bram ]
-  set_property -dict [list CONFIG.DATA_WIDTH {64}] $translation_bram
+  set_property -dict [list CONFIG.DATA_WIDTH {128}] $translation_bram
 
   # Create instance: Constant block for the PCIe Core
   set intx_msi_constant [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 intx_msi_constant]
