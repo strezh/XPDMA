@@ -19,9 +19,8 @@ MODULE_AUTHOR("Strezhik Iurii");
 
 // Max CDMA buffer size
 #define MAX_BTT             0x007FFFFF   // 8 MBytes maximum for DMA Transfer */
-//#define BUF_SIZE            (4<<20)     // 4 MBytes read/write buffer size
-#define BUF_SIZE            16*PAGE_SIZE // 64 kBytes read/write buffer size
-#define TRANSFER_SIZE       16*PAGE_SIZE // 64 kBytes transfer size for scatter gather
+#define BUF_SIZE            (4<<20)      // 4 MBytes read/write buffer size
+#define TRANSFER_SIZE       (4<<20)      // 4 MBytes transfer size for scatter gather
 #define DESCRIPTOR_SIZE     64           // 64-byte aligned Transfer Descriptor
 
 #define BRAM_OFFSET         0x00000000   // Translation BRAM offset
@@ -63,27 +62,27 @@ MODULE_AUTHOR("Strezhik Iurii");
 
 // Scatter Gather Transfer descriptor
 typedef struct {
-    u32 nextDesc;	/* 0x00 */
-    u32 na1;	/* 0x04 */
-    u32 srcAddr;	/* 0x08 */
-    u32 na2;	/* 0x0C */
-    u32 destAddr;	/* 0x10 */
-    u32 na3;	/* 0x14 */
-    u32 control;	/* 0x18 */
-    u32 status;	/* 0x1C */
+    u32 nextDesc;   /* 0x00 */
+    u32 na1;	    /* 0x04 */
+    u32 srcAddr;    /* 0x08 */
+    u32 na2;        /* 0x0C */
+    u32 destAddr;   /* 0x10 */
+    u32 na3;        /* 0x14 */
+    u32 control;    /* 0x18 */
+    u32 status;     /* 0x1C */
 } __aligned(DESCRIPTOR_SIZE) sg_desc_t;
 
 #define HAVE_KERNEL_REG     0x01    // Kernel registration
 #define HAVE_MEM_REGION     0x02    // I/O Memory region
 
-int gDrvrMajor = 241;               // Major number not dynamic.
-struct pci_dev *gDev = NULL;        // PCI device structure.
+int gDrvrMajor = 241;               // Major number not dynamic
+struct pci_dev *gDev = NULL;        // PCI device structure
 unsigned int gStatFlags = 0x00;     // Status flags used for cleanup
 unsigned long gBaseHdwr;            // Base register address (Hardware address)
 unsigned long gBaseLen;             // Base register address Length
-void *gBaseVirt = NULL;             // Base register address (Virtual address, for I/O).
-char *gReadBuffer = NULL;           // Pointer to dword aligned DMA Read buffer.
-char *gWriteBuffer = NULL;          // Pointer to dword aligned DMA Write buffer.
+void *gBaseVirt = NULL;             // Base register address (Virtual address, for I/O)
+char *gReadBuffer = NULL;           // Pointer to dword aligned DMA Read buffer
+char *gWriteBuffer = NULL;          // Pointer to dword aligned DMA Write buffer
 
 sg_desc_t *gDescChain;              // Translation Descriptors chain
 size_t gDescChainLength;
