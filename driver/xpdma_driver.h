@@ -5,18 +5,21 @@
 
 #define VENDOR_ID 0x10EE // Xilinx Vendor ID
 #define DEVICE_ID 0x7024
+#define XPDMA_NUM_MAX   16  // Maximum number of FPGA boards
 
-#define SUCCESS      0
-#define CRIT_ERR    -1
+#define SUCCESS         0
+#define CRIT_ERR       -1
 
-// Struct Used for Writing CDMA Register
+// Struct Used for Read/Write CDMA Register
 typedef struct {
+    int id;
     uint32_t reg;
     uint32_t value;
 } cdmaReg_t;
 
 // Struct Used for send/receive data
 typedef struct {
+    int id;
     void *data;
     uint32_t count;
     uint32_t addr;
