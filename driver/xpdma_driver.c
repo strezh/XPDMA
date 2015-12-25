@@ -189,7 +189,7 @@ long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 //    printk(KERN_INFO"%s: Ioctl command: %d \n", DEVICE_NAME, cmd);
     switch (cmd) {
         case IOCTL_RESET:
-            xpdma_reset((*(int *)arg));
+            return xpdma_reset((*(int *)arg));
             break;
         case IOCTL_RDCDMAREG: // Read CDMA config registers
 //             printk(KERN_INFO"%s: FPGA %d\n", DEVICE_NAME, (*(cdmaReg_t *)arg).id);
@@ -215,7 +215,7 @@ long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 //             printk(KERN_INFO"%s: FPGA %d\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).id);
 //             printk(KERN_INFO"%s: Send Data size 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).count);
 //             printk(KERN_INFO"%s: Send Data address 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).addr);
-            xpdma_send ((*(cdmaBuffer_t *)arg).id, (*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
+            return xpdma_send ((*(cdmaBuffer_t *)arg).id, (*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
 //             printk(KERN_INFO"%s: Sended\n", DEVICE_NAME);
             break;
         case IOCTL_RECV:
@@ -223,7 +223,7 @@ long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 //             printk(KERN_INFO"%s: FPGA %d\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).id);
 //             printk(KERN_INFO"%s: Receive Data size 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).count);
 //             printk(KERN_INFO"%s: Receive Data address 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).addr);
-            xpdma_recv ((*(cdmaBuffer_t *)arg).id, (*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
+            return xpdma_recv ((*(cdmaBuffer_t *)arg).id, (*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
 //             printk(KERN_INFO"%s: Received\n", DEVICE_NAME);
             break;
         case IOCTL_INFO:
