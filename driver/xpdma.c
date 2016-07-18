@@ -47,6 +47,8 @@ xpdma_t *xpdma_open(int id)
     }
 
     if (CRIT_ERR == ioctl(device->fd, IOCTL_RESET, &(device->id))) {
+        close(gfd);
+        gfd = -1;
         //free(device);
         return NULL;
     }
@@ -59,8 +61,10 @@ xpdma_t *xpdma_open(int id)
 void xpdma_close(xpdma_t * device) {
     gOpenCount--;
     //printf ("free DEVICE\n");
-    if (gOpenCount == 0)
-        close(device->fd);
+    if (gOpenCount == 0) {
+        close(gfd);
+        gfd = -1;
+    }
 
     if (device != NULL)
         free(device);
