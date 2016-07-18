@@ -58,13 +58,13 @@ xpdma_t *xpdma_open(int id)
 
 void xpdma_close(xpdma_t * device) {
     gOpenCount--;
-    printf ("free DEVICE\n");
+    //printf ("free DEVICE\n");
     if (gOpenCount == 0)
         close(device->fd);
 
     if (device != NULL)
         free(device);
-    printf ("end free DEVICE\n");
+    //printf ("end free DEVICE\n");
 }
 
 int xpdma_send(xpdma_t *fpga, void *data, unsigned int count, unsigned int addr)
