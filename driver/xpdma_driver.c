@@ -79,6 +79,20 @@ typedef struct {
 int gDrvrMajor = 241;               // Major number not dynamic
 int gKernelRegFlag = 0;
 
+// semaphores
+enum  {
+        SEM_READ,
+        SEM_WRITE,
+        SEM_WRITEREG,
+        SEM_READREG,
+        SEM_WAITFOR,
+        SEM_DMA,
+        NUM_SEMS
+};
+
+//semaphores
+struct semaphore gSem[NUM_SEMS];
+
 struct xpdma_state {
     struct pci_dev *dev;
     bool used;
@@ -587,7 +601,11 @@ ssize_t xpdma_send (int id, void *data, size_t count, u32 addr)
         printk(KERN_WARNING"%s: FPGA %d don't initialized!\n", DEVICE_NAME, id);
         return (CRIT_ERR);
     }
+    
+    down(&gSem[SEM_DMA]);
     sg_block(id, PCI_DMA_TODEVICE, (void *)data, count, addr);
+    up(&gSem[SEM_DMA]);
+
     return (SUCCESS);
 }
 
@@ -597,7 +615,11 @@ ssize_t xpdma_recv (int id, void *data, size_t count, u32 addr)
         printk(KERN_WARNING"%s: FPGA %d don't initialized!\n", DEVICE_NAME, id);
         return (CRIT_ERR);
     }
+    
+    down(&gSem[SEM_DMA]);
     sg_block(id, PCI_DMA_FROMDEVICE, (void *)data, count, addr);
+    up(&gSem[SEM_DMA]);
+
     return (SUCCESS);
 }
 
