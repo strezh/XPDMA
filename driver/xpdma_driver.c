@@ -10,12 +10,12 @@
 #include <asm/uaccess.h>        /* Needed for copy_to_user & copy_from_user */
 #include <linux/delay.h>        /* udelay, mdelay */
 #include <linux/dma-mapping.h>
-
 #include "xpdma_driver.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("PCIe driver for Xilinx CDMA subsystem (XAPP1171), Linux");
 MODULE_AUTHOR("Strezhik Iurii");
+
 
 
 // Max CDMA buffer size
@@ -29,13 +29,13 @@ MODULE_AUTHOR("Strezhik Iurii");
 #define CDMA_OFFSET         0x0000c000   // AXI CDMA LITE control offset
 
 // AXI CDMA Register Offsets
-#define CDMA_CONTROL_OFFSET	0x00         // Control Register
-#define CDMA_STATUS_OFFSET	0x04         // Status Register
-#define CDMA_CDESC_OFFSET	0x08         // Current descriptor Register
-#define CDMA_TDESC_OFFSET	0x10         // Tail descriptor Register
-#define CDMA_SRCADDR_OFFSET	0x18         // Source Address Register
-#define CDMA_DSTADDR_OFFSET	0x20         // Dest Address Register
-#define CDMA_BTT_OFFSET		0x28         // Bytes to transfer Register
+#define CDMA_CONTROL_OFFSET 0x00         // Control Register
+#define CDMA_STATUS_OFFSET  0x04         // Status Register
+#define CDMA_CDESC_OFFSET   0x08         // Current descriptor Register
+#define CDMA_TDESC_OFFSET   0x10         // Tail descriptor Register
+#define CDMA_SRCADDR_OFFSET 0x18         // Source Address Register
+#define CDMA_DSTADDR_OFFSET 0x20         // Dest Address Register
+#define CDMA_BTT_OFFSET     0x28         // Bytes to transfer Register
 
 #define AXI_PCIE_DM_ADDR    0x80000000   // AXI:BAR1 Address
 #define AXI_PCIE_SG_ADDR    0x80800000   // AXI:BAR0 Address
@@ -59,7 +59,7 @@ MODULE_AUTHOR("Strezhik Iurii");
 #define AXIBAR2PCIEBAR_1L   0x214        // AXI:BAR1 Lower Address Translation (bits [31:0])
 
 #define CDMA_RESET_LOOP	    1000000      // Reset timeout counter limit
-#define SG_TRANSFER_LOOP	1000000      // Scatter Gather Transfer timeout counter limit
+#define SG_TRANSFER_LOOP    1000000      // Scatter Gather Transfer timeout counter limit
 
 // Scatter Gather Transfer descriptor
 typedef struct {
@@ -79,19 +79,8 @@ typedef struct {
 int gDrvrMajor = 241;               // Major number not dynamic
 int gKernelRegFlag = 0;
 
-// semaphores
-enum  {
-        SEM_READ,
-        SEM_WRITE,
-        SEM_WRITEREG,
-        SEM_READREG,
-        SEM_WAITFOR,
-        SEM_DMA,
-        NUM_SEMS
-};
-
 //semaphores
-struct semaphore gSem[NUM_SEMS];
+struct semaphore gSemDma;
 
 struct xpdma_state {
     struct pci_dev *dev;
@@ -402,7 +391,7 @@ static int xpdma_reset(int id)
     }
 
     printk(KERN_INFO"%s: RESET CDMA\n", DEVICE_NAME);
-
+    down(&gSemDma);
     xpdma_writeReg(id, (CDMA_OFFSET + CDMA_CONTROL_OFFSET),
                    xpdma_readReg(id, CDMA_OFFSET + CDMA_CONTROL_OFFSET) | CDMA_CR_RESET_MASK);
 
@@ -424,6 +413,8 @@ static int xpdma_reset(int id)
 
     // For Axi CDMA, always do sg transfers if sg mode is built in
     xpdma_writeReg(id, CDMA_OFFSET + CDMA_CONTROL_OFFSET, tmp | CDMA_CR_SG_EN);
+
+    up(&gSemDma);
 
     printk(KERN_INFO"%s: SUCCESSFULLY RESET CDMA!\n", DEVICE_NAME);
 
@@ -601,10 +592,10 @@ ssize_t xpdma_send (int id, void *data, size_t count, u32 addr)
         printk(KERN_WARNING"%s: FPGA %d don't initialized!\n", DEVICE_NAME, id);
         return (CRIT_ERR);
     }
-    
-    down(&gSem[SEM_DMA]);
+
+    down(&gSemDma);
     sg_block(id, PCI_DMA_TODEVICE, (void *)data, count, addr);
-    up(&gSem[SEM_DMA]);
+    up(&gSemDma);
 
     return (SUCCESS);
 }
@@ -615,10 +606,10 @@ ssize_t xpdma_recv (int id, void *data, size_t count, u32 addr)
         printk(KERN_WARNING"%s: FPGA %d don't initialized!\n", DEVICE_NAME, id);
         return (CRIT_ERR);
     }
-    
-    down(&gSem[SEM_DMA]);
+
+    down(&gSemDma);
     sg_block(id, PCI_DMA_FROMDEVICE, (void *)data, count, addr);
-    up(&gSem[SEM_DMA]);
+    up(&gSemDma);
 
     return (SUCCESS);
 }
@@ -785,6 +776,7 @@ static int xpdma_init (void)
     }
 
     printk(KERN_INFO"%s: Init: done\n", DEVICE_NAME);
+
     return (SUCCESS);
 }
 
