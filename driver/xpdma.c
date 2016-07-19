@@ -38,22 +38,21 @@ xpdma_t *xpdma_open(int id)
     if (gfd < 0) 
         gfd = open("/dev/" DEVICE_NAME, O_RDWR | O_SYNC);
     
-    device->id = id;
-    device->fd = gfd;
-
     if (gfd < 0) {
         free(device);
         return NULL;
     }
 
-    if (CRIT_ERR == ioctl(device->fd, IOCTL_RESET, &(device->id))) {
-        close(gfd);
-        gfd = -1;
-        //free(device);
-        return NULL;
-    }
-
+    device->id = id;
+    device->fd = gfd;
     gOpenCount++;
+
+//    if (CRIT_ERR == ioctl(device->fd, IOCTL_RESET, &(device->id))) {
+//        close(gfd);
+//        gfd = -1;
+//        free(device);
+//        return NULL;
+//    }
 
     return device;
 }
@@ -61,13 +60,13 @@ xpdma_t *xpdma_open(int id)
 void xpdma_close(xpdma_t * device) {
     gOpenCount--;
     //printf ("free DEVICE\n");
+    if (device != NULL)
+        free(device);
+
     if (gOpenCount == 0) {
         close(gfd);
         gfd = -1;
     }
-
-    if (device != NULL)
-        free(device);
     //printf ("end free DEVICE\n");
 }
 
