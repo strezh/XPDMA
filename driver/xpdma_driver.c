@@ -391,7 +391,7 @@ static int xpdma_reset(int id)
     }
 
     printk(KERN_INFO"%s: RESET CDMA\n", DEVICE_NAME);
-    down(&gSemDma);
+    //down(&gSemDma);
     xpdma_writeReg(id, (CDMA_OFFSET + CDMA_CONTROL_OFFSET),
                    xpdma_readReg(id, CDMA_OFFSET + CDMA_CONTROL_OFFSET) | CDMA_CR_RESET_MASK);
 
@@ -414,7 +414,7 @@ static int xpdma_reset(int id)
     // For Axi CDMA, always do sg transfers if sg mode is built in
     xpdma_writeReg(id, CDMA_OFFSET + CDMA_CONTROL_OFFSET, tmp | CDMA_CR_SG_EN);
 
-    up(&gSemDma);
+    //up(&gSemDma);
 
     printk(KERN_INFO"%s: SUCCESSFULLY RESET CDMA!\n", DEVICE_NAME);
 
@@ -593,9 +593,9 @@ ssize_t xpdma_send (int id, void *data, size_t count, u32 addr)
         return (CRIT_ERR);
     }
 
-    down(&gSemDma);
+    //down(&gSemDma);
     sg_block(id, PCI_DMA_TODEVICE, (void *)data, count, addr);
-    up(&gSemDma);
+    //up(&gSemDma);
 
     return (SUCCESS);
 }
@@ -607,9 +607,9 @@ ssize_t xpdma_recv (int id, void *data, size_t count, u32 addr)
         return (CRIT_ERR);
     }
 
-    down(&gSemDma);
+    //down(&gSemDma);
     sg_block(id, PCI_DMA_FROMDEVICE, (void *)data, count, addr);
-    up(&gSemDma);
+    //up(&gSemDma);
 
     return (SUCCESS);
 }
@@ -776,7 +776,6 @@ static int xpdma_init (void)
     }
 
     printk(KERN_INFO"%s: Init: done\n", DEVICE_NAME);
-
     return (SUCCESS);
 }
 

@@ -24,7 +24,6 @@ struct xpdma_t {
 static int gfd = -1; // global device file escriptor
 static int gOpenCount = 0; // counter for opened devices
 
-
 xpdma_t *xpdma_open(int id) 
 {
     xpdma_t * device;
@@ -47,18 +46,10 @@ xpdma_t *xpdma_open(int id)
     device->fd = gfd;
     gOpenCount++;
 
-//    if (CRIT_ERR == ioctl(device->fd, IOCTL_RESET, &(device->id))) {
-//        close(gfd);
-//        gfd = -1;
-//        free(device);
-//        return NULL;
-//    }
-
     return device;
 }
 
 void xpdma_close(xpdma_t * device) {
-    gOpenCount--;
     //printf ("free DEVICE\n");
     if (device != NULL)
         free(device);
@@ -66,12 +57,17 @@ void xpdma_close(xpdma_t * device) {
     if (gOpenCount == 0) {
         close(gfd);
         gfd = -1;
+    } else {
+        gOpenCount--;
     }
     //printf ("end free DEVICE\n");
 }
 
 int xpdma_send(xpdma_t *fpga, void *data, unsigned int count, unsigned int addr)
 {
+    if (fpga == NULL)
+        return -1;
+
     if ( addr % 4 )
         return -1;
 
@@ -82,6 +78,9 @@ int xpdma_send(xpdma_t *fpga, void *data, unsigned int count, unsigned int addr)
 
 int xpdma_recv(xpdma_t *fpga, void *data, unsigned int count, unsigned int addr)
 {
+    if (fpga == NULL)
+        return -1;
+
     if ( addr % 4 )
         return -1;
 
@@ -92,6 +91,9 @@ int xpdma_recv(xpdma_t *fpga, void *data, unsigned int count, unsigned int addr)
 
 void xpdma_writeReg(xpdma_t *fpga, uint32_t addr, uint32_t value)
 {
+    if (fpga == NULL)
+        return;
+
     cdmaReg_t data;
     data.id = fpga->id;
     data.reg = addr;
@@ -101,6 +103,9 @@ void xpdma_writeReg(xpdma_t *fpga, uint32_t addr, uint32_t value)
 
 uint32_t xpdma_readReg(xpdma_t *fpga, uint32_t addr)
 {
+    if (fpga == NULL)
+        return 0;
+
     cdmaReg_t data;
     data.id = fpga->id;
     data.reg = addr;
@@ -121,6 +126,9 @@ void xpdma_write(xpdma_t *fpga, void *data, unsigned int count)
 
 void xpdma_test_sg(xpdma_t *fpga, void *data, unsigned int count)
 {
+    if (fpga == NULL)
+        return;
+
     cdmaBuffer_t buffer;
     buffer.id = fpga->id;
     buffer.data = data;
@@ -133,12 +141,18 @@ void xpdma_test_sg(xpdma_t *fpga, void *data, unsigned int count)
 
 void xpdma_info(xpdma_t *fpga)
 {
+    if (fpga == NULL)
+        return;
+
     ioctl(fpga->fd, IOCTL_INFO, fpga->id);
 }
 
 
 void xpdma_setCfgReg(xpdma_t *fpga, uint32_t regNumber, uint32_t data)
 {
+    if (fpga == NULL)
+        return;
+
     if (regNumber > CTR_REG_SIZE) {
         printf("setCfgReg: Wrong reg number :%08X!\n", regNumber);
         return;
@@ -148,6 +162,9 @@ void xpdma_setCfgReg(xpdma_t *fpga, uint32_t regNumber, uint32_t data)
 
 uint32_t xpdma_getCfgReg(xpdma_t *fpga, uint32_t regNumber)
 {
+    if (fpga == NULL)
+        return 0;
+
     if (regNumber > CTR_REG_SIZE) {
         printf("getCfgReg: Wrong reg number :%08X!\n", regNumber);
         return 0;
