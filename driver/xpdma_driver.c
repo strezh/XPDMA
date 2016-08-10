@@ -10,11 +10,15 @@
 #include <asm/uaccess.h>        /* Needed for copy_to_user & copy_from_user */
 #include <linux/delay.h>        /* udelay, mdelay */
 #include <linux/dma-mapping.h>
+
+#include <linux/fs.h>
+
 #include "xpdma_driver.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("PCIe driver for Xilinx CDMA subsystem (XAPP1171), Linux");
 MODULE_AUTHOR("Strezhik Iurii");
+
 
 
 
@@ -78,6 +82,24 @@ typedef struct {
 
 int gDrvrMajor = 241;               // Major number not dynamic
 int gKernelRegFlag = 0;
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/platform_device.h>
+#include <linux/gpio.h>
+#include <linux/fs.h>
+#include <linux/errno.h>
+#include <asm/uaccess.h>
+#include <linux/version.h>
+#include <linux/types.h>
+#include <linux/kdev_t.h>
+#include <linux/device.h>
+#include <linux/cdev.h>
+
+static dev_t first;         // Global variable for the first device number
+static struct cdev c_dev;     // Global variable for the character device structure
+static struct class *cl;     // Global variable for the device class
 
 //semaphores
 struct semaphore gSemDma;
@@ -727,7 +749,7 @@ static int xpdma_getResource(int id)
 static int xpdma_init (void)
 {
     int c = 0;
-                
+
 //     printk(KERN_INFO"%s: Init: set default values\n", DEVICE_NAME);
     for (c = 0; c < XPDMA_NUM_MAX; ++c) {
         xpdmas[c].used = 0;
@@ -736,7 +758,7 @@ static int xpdma_init (void)
         xpdmas[c].readBuffer = NULL;
         xpdmas[c].writeBuffer = NULL;
     }
-    
+
     printk(KERN_INFO"%s: Init: try to found boards\n", DEVICE_NAME);
 
     for (c = 0; c < XPDMA_NUM_MAX; ++c) {
@@ -756,11 +778,50 @@ static int xpdma_init (void)
     printk(KERN_INFO"%s: Init: finish found boards\n", DEVICE_NAME);
 
     // Register driver as a character device.
-    if (0 > register_chrdev(gDrvrMajor, DEVICE_NAME, &xpdma_intf)) {
-        printk(KERN_WARNING"%s: Init: module not register\n", DEVICE_NAME);
+    //if (0 > register_chrdev(gDrvrMajor, DEVICE_NAME, &xpdma_intf)) {
+    //    printk(KERN_WARNING"%s: Init: module not register\n", DEVICE_NAME);
+    //    return (CRIT_ERR);
+    //}
+
+    gDrvrMajor = alloc_chrdev_region( &first, 0, 1, DEVICE_NAME );
+
+    if(0 > gDrvrMajor)
+    {
+        printk(KERN_ALERT"%s: Device Registration failed\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
+    //else
+    //{
+    //    printk( KERN_INFO"%s: Major number is: %d\n",DEVICE_NAME, gDrvrMajor );
+    //    return 0;
+    //}
+
+    if ( NULL == (cl = class_create( THIS_MODULE, "chardev" ) ))
+    {
+        printk(KERN_ALERT"%s: Class creation failed\n", DEVICE_NAME);
+        unregister_chrdev_region( first, 1 );
+        return -1;
+    }
     printk(KERN_INFO"%s: Init: module registered\n", DEVICE_NAME);
+
+    if( NULL == device_create( cl, NULL, first, NULL, DEVICE_NAME ))
+    {
+        printk(KERN_ALERT"%s: Device creation failed\n", DEVICE_NAME);
+        class_destroy(cl);
+        unregister_chrdev_region( first, 1 );
+        return (CRIT_ERR);
+    }
+
+    cdev_init( &c_dev, &xpdma_intf );
+
+    if( cdev_add( &c_dev, first, 1 ) == -1)
+    {
+        printk(KERN_ALERT"%s: Device addition failed\n", DEVICE_NAME);
+        device_destroy( cl, first );
+        class_destroy( cl );
+        unregister_chrdev_region( first, 1 );
+        return (CRIT_ERR);
+    }
 
     gKernelRegFlag |= HAVE_KERNEL_REG;
     printk(KERN_INFO"%s: Init: driver is loaded\n", DEVICE_NAME);
@@ -821,8 +882,16 @@ static void xpdma_exit (void)
     }
     // Unregister Device Driver
 
-    if (gKernelRegFlag & HAVE_KERNEL_REG)
-        unregister_chrdev(gDrvrMajor, DEVICE_NAME);
+    if (gKernelRegFlag & HAVE_KERNEL_REG) {
+//        unregister_chrdev(gDrvrMajor, DEVICE_NAME);
+
+        cdev_del(&c_dev);
+        device_destroy(cl, first);
+        class_destroy(cl);
+        unregister_chrdev_region(first, 1);
+        printk(KERN_ALERT"%s: Device unregistered\n", DEVICE_NAME);
+    }
+
 
     printk(KERN_ALERT"%s: driver is unloaded\n", DEVICE_NAME);
 }
