@@ -27,7 +27,7 @@ $(NAME).ko: *.c *.h
 	rm -rf $(LIB_OBJS)
 
 $(NAME).so: $(LIB_OBJS)_SO
-	$(CC) -shared $(LIB_OBJS) -o lib$@
+	$(CC) -shared $(LIB_OBJS) -o lib$@ -lpthread
 
 $(LIB_OBJS)_SO: $(LIB_SRCS)
 	$(CC) -g -Wall -static -fPIC -c $^
