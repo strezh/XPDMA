@@ -10,17 +10,13 @@
 #include <asm/uaccess.h>        /* Needed for copy_to_user & copy_from_user */
 #include <linux/delay.h>        /* udelay, mdelay */
 #include <linux/dma-mapping.h>
-
 #include <linux/fs.h>
-
+#include <linux/cdev.h>
 #include "xpdma_driver.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("PCIe driver for Xilinx CDMA subsystem (XAPP1171), Linux");
 MODULE_AUTHOR("Strezhik Iurii");
-
-
-
 
 // Max CDMA buffer size
 #define MAX_BTT             0x007FFFFF   // 8 MBytes maximum for DMA Transfer */
@@ -83,26 +79,13 @@ typedef struct {
 int gDrvrMajor = 241;               // Major number not dynamic
 int gKernelRegFlag = 0;
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/platform_device.h>
-#include <linux/gpio.h>
-#include <linux/fs.h>
-#include <linux/errno.h>
-#include <asm/uaccess.h>
-#include <linux/version.h>
-#include <linux/types.h>
-#include <linux/kdev_t.h>
-#include <linux/device.h>
-#include <linux/cdev.h>
 
 static dev_t first;         // Global variable for the first device number
 static struct cdev c_dev;     // Global variable for the character device structure
 static struct class *cl;     // Global variable for the device class
 
 //semaphores
-struct semaphore gSemDma;
+static struct semaphore gSemDma;
 
 struct xpdma_state {
     struct pci_dev *dev;
@@ -210,11 +193,14 @@ struct file_operations xpdma_intf = {
 long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
     u32 regx = 0;
+    int result = CRIT_ERR;
+    
+    down(&gSemDma);
   
 //    printk(KERN_INFO"%s: Ioctl command: %d \n", DEVICE_NAME, cmd);
     switch (cmd) {
         case IOCTL_RESET:
-            return xpdma_reset((*(int *)arg));
+            result = xpdma_reset((*(int *)arg));
             break;
         case IOCTL_RDCDMAREG: // Read CDMA config registers
 //             printk(KERN_INFO"%s: FPGA %d\n", DEVICE_NAME, (*(cdmaReg_t *)arg).id);
@@ -222,25 +208,29 @@ long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
             regx = xpdma_readReg((*(cdmaReg_t *)arg).id, (*(cdmaReg_t *)arg).reg);
             (*(cdmaReg_t *)arg).value = regx;
 //             printk(KERN_INFO"%s: Readed value 0x%X\n", DEVICE_NAME, regx);
+            result = SUCCESS;
             break;
         case IOCTL_WRCDMAREG: // Write CDMA config registers
 //             printk(KERN_INFO"%s: FPGA %d\n", DEVICE_NAME, (*(cdmaReg_t *)arg).id);
 //             printk(KERN_INFO"%s: Write Register 0x%X\n", DEVICE_NAME, (*(cdmaReg_t *)arg).reg);
 //             printk(KERN_INFO"%s: Write Value 0x%X\n", DEVICE_NAME, (*(cdmaReg_t *)arg).value);
             xpdma_writeReg((*(cdmaReg_t *)arg).id, (*(cdmaReg_t *)arg).reg, (*(cdmaReg_t *)arg).value);
+            result = SUCCESS;
             break;
         case IOCTL_RDCFGREG:
             // TODO: Read PCIe config registers
+            result = SUCCESS;
             break;
         case IOCTL_WRCFGREG:
             // TODO: Write PCIe config registers
+            result = SUCCESS;
             break;
         case IOCTL_SEND:
             // Send data from Host system to AXI CDMA
 //             printk(KERN_INFO"%s: FPGA %d\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).id);
 //             printk(KERN_INFO"%s: Send Data size 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).count);
 //             printk(KERN_INFO"%s: Send Data address 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).addr);
-            return xpdma_send ((*(cdmaBuffer_t *)arg).id, (*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
+            result = xpdma_send ((*(cdmaBuffer_t *)arg).id, (*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
 //             printk(KERN_INFO"%s: Sended\n", DEVICE_NAME);
             break;
         case IOCTL_RECV:
@@ -248,16 +238,20 @@ long xpdma_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 //             printk(KERN_INFO"%s: FPGA %d\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).id);
 //             printk(KERN_INFO"%s: Receive Data size 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).count);
 //             printk(KERN_INFO"%s: Receive Data address 0x%X\n", DEVICE_NAME, (*(cdmaBuffer_t *)arg).addr);
-            return xpdma_recv ((*(cdmaBuffer_t *)arg).id, (*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
+            result = xpdma_recv ((*(cdmaBuffer_t *)arg).id, (*(cdmaBuffer_t *)arg).data, (*(cdmaBuffer_t *)arg).count, (*(cdmaBuffer_t *)arg).addr);
 //             printk(KERN_INFO"%s: Received\n", DEVICE_NAME);
             break;
         case IOCTL_INFO:
             xpdma_showInfo ((*(int *)arg));
+            result = SUCCESS;
+            break;
         default:
             break;
     }
+    
+    up(&gSemDma);
 
-    return (SUCCESS);
+    return result;
 }
 
 void xpdma_showInfo (int id)
@@ -749,6 +743,7 @@ static int xpdma_getResource(int id)
 static int xpdma_init (void)
 {
     int c = 0;
+    sema_init(&gSemDma, 1);
 
 //     printk(KERN_INFO"%s: Init: set default values\n", DEVICE_NAME);
     for (c = 0; c < XPDMA_NUM_MAX; ++c) {
