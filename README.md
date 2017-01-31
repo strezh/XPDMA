@@ -8,6 +8,12 @@ Tested on Linux Debian 7.0 (Wheezy) with Linux kernel 3.2.0 x64
 
 ## Changelog
 
+v.0.1.0
+- multiple boards support
+- change basic library interface 
+- fix concurrent access errors
+- fix many critical errors
+
 v.0.0.2
 - added simple test software (speed meter)
 - added basic library for driver using
