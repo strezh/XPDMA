@@ -7,6 +7,7 @@
 
 #define TEST_SIZE   1024*1024*1024 // 1GB test data
 #define TEST_ADDR   0 // offset of DDR start address
+#define BOARD_ID    0 // board number (for multiple boards)
 
 int main() {
     xpdma_t * fpga;
@@ -24,7 +25,7 @@ int main() {
     double time_ms[4];
 
     printf("Open FPGA: ");
-    fpga = xpdma_open();
+    fpga = xpdma_open(BOARD_ID);
     if (NULL == fpga) {
         printf ("Failed to open XPDMA device\n");
         return 1;
