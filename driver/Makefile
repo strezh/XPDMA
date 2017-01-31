@@ -15,7 +15,11 @@ LIB_OBJS := $(patsubst %.c,%.o,$(LIB_SRCS))
 obj-m += $(NAME).o
 $(NAME)-y := xpdma_driver.o
 
-all: $(NAME).ko $(NAME).a $(NAME).so
+# build only static lib
+all: $(NAME).ko $(NAME).a
+
+# build static and shared libs
+# all: $(NAME).ko $(NAME).a $(NAME).so
 
 clean:
 	make -C $(KERNEL_DIR) M=$(shell pwd) clean
