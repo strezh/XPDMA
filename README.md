@@ -8,6 +8,9 @@ Tested on Linux Debian 7.0 (Wheezy) with Linux kernel 3.2.0 x64
 
 ## Changelog
 
+v.0.1.1
+- fix top level wrapper for PCIe x8 (thanks for Xavier Martin)
+
 v.0.1.0
 - multiple boards support
 - change basic library interface 
