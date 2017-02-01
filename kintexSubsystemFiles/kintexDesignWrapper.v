@@ -46,10 +46,10 @@ module design_1_wrapper
   input         EXT_SYS_CLK_P;
   input         EXT_PCIE_REFCLK_P;
   input         EXT_PCIE_REFCLK_N;
-  input   [3:0] EXT_PCIE_rxn;
-  input   [3:0] EXT_PCIE_rxp;
-  output  [3:0] EXT_PCIE_txn;
-  output  [3:0] EXT_PCIE_txp;
+  input   [7:0] EXT_PCIE_rxn;
+  input   [7:0] EXT_PCIE_rxp;
+  output  [7:0] EXT_PCIE_txn;
+  output  [7:0] EXT_PCIE_txp;
   input         EXT_SYS_RST;
 
   wire mmcms_locked;
