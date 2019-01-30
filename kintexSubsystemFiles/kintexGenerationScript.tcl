@@ -105,7 +105,7 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
   create_bd_pin -dir I -type rst peripheral_aresetn
 
   # Create instance: translation_bram_mem, and set properties
-  set translation_bram_mem [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.2 translation_bram_mem ]
+  set translation_bram_mem [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 translation_bram_mem ]
   set_property -dict [list CONFIG.Memory_Type {True_Dual_Port_RAM}] $translation_bram_mem
 
   # Create instance: axi_cdma_1, and set properties
@@ -113,7 +113,7 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
   set_property -dict [list CONFIG.C_M_AXI_DATA_WIDTH {128} CONFIG.C_M_AXI_MAX_BURST_LEN {128}] $axi_cdma_1
 
   # Create instance: axi_pcie_1, and set properties
-  set axi_pcie_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_pcie:2.5 axi_pcie_1 ]
+  set axi_pcie_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_pcie:2.9 axi_pcie_1 ]
   set_property -dict [list CONFIG.XLNX_REF_BOARD {KC705_REVC}      \
                            CONFIG.PCIE_CAP_SLOT_IMPLEMENTED {true} \
                            CONFIG.NO_OF_LANES {X8}                 \
@@ -132,7 +132,7 @@ proc create_hier_cell_pcie_cdma_subsystem {} {
                            CONFIG.S_AXI_SUPPORTS_NARROW_BURST {true}] $axi_pcie_1
 
   # Create instance: translation_bram, and set properties
-  set translation_bram [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.0 translation_bram ]
+  set translation_bram [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.1 translation_bram ]
   set_property -dict [list CONFIG.DATA_WIDTH {128}] $translation_bram
 
   # Create instance: Constant block for the PCIe Core
@@ -210,11 +210,11 @@ proc generateSubsystem {migFile projName designName} {
   set proc_sys_reset_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_1 ]
 
   # Create an inverter for the Reset signal as required by the DDR
-  set ddr_reset_inv [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:1.0 ddr_reset_inv ]
+  set ddr_reset_inv [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 ddr_reset_inv ]
   set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {not}] $ddr_reset_inv
 
   # Create Instance ddr3_mem and set properties
-  set ddr_mem [ create_bd_cell -type ip -vlnv xilinx.com:ip:mig_7series:2.2 ddr3_mem ]
+  set ddr_mem [ create_bd_cell -type ip -vlnv xilinx.com:ip:mig_7series:4.2 ddr3_mem ]
   file copy ${migFile} ./${projName}/${projName}.srcs/sources_1/bd/${designName}/ip/${designName}_ddr3_mem_0/mig_a.prj
   set_property CONFIG.XML_INPUT_FILE {mig_a.prj} $ddr_mem
 
