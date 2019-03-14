@@ -689,14 +689,12 @@ static int xpdma_getResource(int id)
     }
 //    printk(KERN_INFO"%s: Init: Virt HW address %lX\n", DEVICE_NAME, (size_t) xpdmas[id].baseVirt);
 
-    // Check the memory region to see if it is in use
-    if (0 > check_mem_region(xpdmas[id].baseHdwr, xpdmas[id].baseLen)) {
+    // Try to gain exclusive control of memory for hardware.
+    if (NULL == request_mem_region(xpdmas[id].baseHdwr, xpdmas[id].baseLen, 
+                "Xilinx_PCIe_CDMA_Driver")) {
         printk(KERN_WARNING"%s: getResource: Memory in use.\n", DEVICE_NAME);
         return (CRIT_ERR);
     }
-
-    // Try to gain exclusive control of memory for hardware.
-    request_mem_region(xpdmas[id].baseHdwr, xpdmas[id].baseLen, "Xilinx_PCIe_CDMA_Driver");
     xpdmas[id].statFlags |= HAVE_MEM_REGION;
 //     printk(KERN_INFO"%s: getResource: Initialize Hardware Done..\n", DEVICE_NAME);
 
