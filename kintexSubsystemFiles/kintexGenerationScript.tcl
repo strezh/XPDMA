@@ -24,7 +24,6 @@ proc vivadoVersion {} {
 set version [vivadoVersion]
 puts "Vivado version: $version"
 
-
 switch $version {
   "2014.3" {
     set UTIL_VECTOR_LOGIC 1.0
@@ -39,6 +38,13 @@ switch $version {
     set BLK_MEM_GEN 8.3
     set AXI_BRAM_CTRL 4.0
     set AXI_PCIE 2.7
+  } 
+  "2018.3" {
+    set UTIL_VECTOR_LOGIC 2.0
+    set MIG_7SERIES 4.2
+    set BLK_MEM_GEN 8.4
+    set AXI_BRAM_CTRL 4.1
+    set AXI_PCIE 2.9
   } 
   default {
     puts "Error: unsupported Vivado version!"
