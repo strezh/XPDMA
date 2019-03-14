@@ -7,7 +7,12 @@
 #include <linux/init.h>         /* Needed for the macros */
 #include <linux/fs.h>           /* Needed for files operations */
 #include <linux/pci.h>          /* Needed for PCI */
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0)
 #include <asm/uaccess.h>        /* Needed for copy_to_user & copy_from_user */
+#else
+#include <linux/uaccess.h>      /* Needed for copy_to_user & copy_from_user */
+#endif
 #include <linux/delay.h>        /* udelay, mdelay */
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
