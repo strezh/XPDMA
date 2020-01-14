@@ -857,7 +857,7 @@ static void xpdma_exit (void)
                 dma_free_coherent( &xpdmas[id].dev->dev, BUF_SIZE, xpdmas[id].writeBuffer, xpdmas[id].writeHWAddr);
 
 //             printk(KERN_INFO"%s: xpdma_exit: erase xpdmas[id].descChain\n", DEVICE_NAME);
-            if (NULL != xpdmas[id].writeBuffer)
+            if (NULL != xpdmas[id].descChain)
                 dma_free_coherent( &xpdmas[id].dev->dev, BUF_SIZE, xpdmas[id].descChain, xpdmas[id].descChainHWAddr);
 
             xpdmas[id].readBuffer = NULL;
